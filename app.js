@@ -122,7 +122,7 @@
       log: state.log.map(function (l) { return { when: l.when.toISOString(), text: l.text, kind: l.kind, html: l.html }; }) };
   }
   function persist() {
-    if (!state.data) return;
+    if (!state.data || state.noPersist) return;
     try { localStorage.setItem(SAVE_KEY, JSON.stringify(snapshot())); } catch (e) { /* private mode or storage full: autosave is a convenience only */ }
   }
   function savedSession() {
@@ -150,6 +150,7 @@
 
   function handleFile(file) {
     if (!file) return;
+    state.noPersist = false;
     if (/\.json$/i.test(file.name)) {
       file.text().then(function (txt) {
         var s = JSON.parse(txt);
@@ -896,4 +897,21 @@
   $('chips').innerHTML = '<button type="button" data-sample>Load sample data</button><button type="button" data-ask="Help">What can you do?</button>';
   state.view = 'landing';
   showRestore();
+
+  // Shareable demo links, e.g. ?demo&view=map&city=Mysuru or ?demo&app=APP-003&tab=path&ask=Why+is+APP-007+on+hold%3F
+  // Loads the sample data straight away and never overwrites the visitor's own autosave.
+  var qs = new URLSearchParams(location.search);
+  if (qs.has('theme')) document.documentElement.setAttribute('data-theme', qs.get('theme'));
+  if (qs.has('demo')) {
+    state.noPersist = true;
+    var parsedDemo = L.parseSheets(window.SAMPLE_SHEETS);
+    openSession({ data: parsedDemo.data, report: parsedDemo.report, fileName: 'Sample data (23 applicants)', log: [] });
+    if (qs.get('city')) state.mapCity = qs.get('city');
+    if (qs.get('view')) setView(qs.get('view'));
+    if (qs.get('chat') === '0') setChat(false);
+    if (qs.get('ask')) ask(qs.get('ask'));
+    if (qs.get('app')) openPassport(qs.get('app'), qs.get('tab') || 'decision');
+    if (qs.get('lang') && qs.get('app')) { state.msgLang[qs.get('app')] = qs.get('lang'); openPassport(qs.get('app'), 'message'); }
+    if (qs.has('guide')) guide();
+  }
 })();

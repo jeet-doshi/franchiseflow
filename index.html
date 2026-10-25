@@ -4,114 +4,203 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>FranchiseFlow</title>
-<meta name="description" content="Franchise partner acquisition, geo-selection and onboarding engine - upload applications and territories, get explainable decisions and onboarding plans, and ask follow-up questions.">
+<meta name="description" content="Franchise partner selection, geo-allocation and onboarding engine. Upload applications and territories; get explainable decisions, onboarding plans and partner messages, and ask follow-up questions.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Sans+Kannada:wght@400;600&family=Noto+Sans+Devanagari:wght@400;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%231f6feb'/%3E%3Cpath d='M9 22V10h10M9 16h8' stroke='white' stroke-width='3' fill='none' stroke-linecap='round'/%3E%3Ccircle cx='23' cy='21' r='3' fill='%23ffd166'/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%232f5bff'/%3E%3Cstop offset='1' stop-color='%237c3aed'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='9' fill='url(%23g)'/%3E%3Cpath d='M10 23V9h11M10 16h8' stroke='white' stroke-width='3.2' fill='none' stroke-linecap='round'/%3E%3Ccircle cx='23.5' cy='22' r='3' fill='%23ffd166'/%3E%3C/svg%3E">
 </head>
 <body>
-<header class="top">
-  <div class="brand">
-    <div class="logo">F</div>
-    <div>
-      <div class="name">FranchiseFlow</div>
-      <div class="tag">Partner selection, geo-allocation &amp; onboarding engine</div>
-    </div>
-  </div>
+<header class="topbar">
+  <a class="brand" href="#" id="brandHome" aria-label="FranchiseFlow home">
+    <span class="logo"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M10 23V9h11M10 16h8" stroke="white" stroke-width="3.2" fill="none" stroke-linecap="round"/><circle cx="23.5" cy="22" r="3" fill="#ffd166"/></svg></span>
+    <span class="brand-text"><b>FranchiseFlow</b><small>Partner selection &amp; onboarding engine</small></span>
+  </a>
+  <nav class="tabs hidden" id="tabs" aria-label="Views">
+    <button data-view="overview" class="active"><i data-ic="grid"></i><span>Overview</span></button>
+    <button data-view="decisions"><i data-ic="list"></i><span>Decisions</span></button>
+    <button data-view="map"><i data-ic="map"></i><span>Map</span></button>
+    <button data-view="onboarding"><i data-ic="calendar"></i><span>Onboarding</span></button>
+  </nav>
   <div class="top-actions">
-    <button class="btn ghost" id="btnHow">How decisions are made</button>
-    <a class="btn ghost" href="sample/FranchiseFlow_Sample_Test_Data.xlsx" download>Sample file</a>
-    <button class="btn ghost hidden" id="btnExport">Export decisions (.xlsx)</button>
-    <label class="btn primary" for="fileInput">Upload Excel</label>
+    <button class="btn ghost" id="btnGuide"><i data-ic="info"></i><span>How to test</span></button>
+    <button class="btn ghost hidden" id="btnAdd"><i data-ic="plus"></i><span>Applicant</span></button>
+    <button class="btn ghost hidden" id="btnExport"><i data-ic="download"></i><span>Export</span></button>
+    <label class="btn primary" for="fileInput"><i data-ic="upload"></i><span>Upload Excel</span></label>
     <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" hidden>
   </div>
 </header>
 
-<div class="layout">
+<div class="shell" id="shell">
   <main id="main">
-    <!-- Empty state -->
-    <section id="empty" class="empty">
-      <div class="drop" id="drop">
-        <h1>From application to an open, trained store, without the spreadsheet chase.</h1>
-        <p class="lead">Upload the <b>Applications</b> and <b>Territories</b> sheets. FranchiseFlow decides what should happen to every applicant, explains why, allocates territory slots without ever putting two stores in one pin code, and builds an onboarding and training plan for everyone moving forward.</p>
-        <div class="drop-actions">
-          <label class="btn primary big" for="fileInput">Upload Excel file</label>
-          <button class="btn big" id="btnSample">Try with sample data</button>
+    <!-- ============ Landing ============ -->
+    <section id="landing" class="landing">
+      <div class="hero">
+        <div class="hero-copy">
+          <span class="eyebrow"><i data-ic="sparkle"></i> AI x Ops Hackathon · Case 1</span>
+          <h1>Every franchise applicant <span class="grad">decided, explained and onboarded</span> in seconds.</h1>
+          <p class="lead">Drop in the Applications + Territories Excel. FranchiseFlow checks every application, gives out territory slots without ever putting two stores in one pin code, and hands each partner their next steps, onboarding plan and a message in their own language.</p>
+          <div class="cta">
+            <button class="btn primary xl" id="btnSample"><i data-ic="play"></i>Try with sample data</button>
+            <label class="btn xl" for="fileInput"><i data-ic="upload"></i>Upload your Excel</label>
+          </div>
+          <div class="trust">
+            <span><i data-ic="lock"></i>No login</span>
+            <span><i data-ic="bolt"></i>Runs in your browser</span>
+            <span><i data-ic="check"></i>Same file, same answer</span>
+            <a href="sample/FranchiseFlow_Sample_Test_Data.xlsx" download><i data-ic="download"></i>Sample file</a>
+          </div>
         </div>
-        <p class="hint">or drag &amp; drop the .xlsx here · no login, nothing leaves your browser</p>
+        <div class="hero-art" aria-hidden="true">
+          <svg viewBox="0 0 460 360" class="flow-svg">
+            <defs>
+              <linearGradient id="hg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2f5bff"/><stop offset="1" stop-color="#7c3aed"/></linearGradient>
+              <filter id="sh" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#1b2a5a" flood-opacity=".14"/></filter>
+            </defs>
+            <g class="paths" fill="none" stroke="var(--line-strong)" stroke-width="2" stroke-dasharray="4 6">
+              <path id="p1" d="M118 60 C170 60 170 180 214 180"/><path id="p2" d="M118 130 C170 130 170 180 214 180"/><path id="p3" d="M118 200 C170 200 170 180 214 180"/><path id="p4" d="M118 270 C170 270 170 180 214 180"/>
+              <path id="q1" d="M266 180 C300 180 300 80 340 80"/><path id="q2" d="M266 180 C300 180 300 180 340 180"/><path id="q3" d="M266 180 C300 180 300 280 340 280"/>
+            </g>
+            <g filter="url(#sh)">
+              <g class="appcard"><rect x="20" y="40" width="98" height="40" rx="10" fill="var(--surface)"/><circle cx="40" cy="60" r="9" fill="#dbe4ff"/><rect x="55" y="52" width="48" height="6" rx="3" fill="var(--line-strong)"/><rect x="55" y="63" width="32" height="5" rx="2.5" fill="var(--line)"/></g>
+              <g class="appcard"><rect x="20" y="110" width="98" height="40" rx="10" fill="var(--surface)"/><circle cx="40" cy="130" r="9" fill="#fde7c7"/><rect x="55" y="122" width="48" height="6" rx="3" fill="var(--line-strong)"/><rect x="55" y="133" width="28" height="5" rx="2.5" fill="var(--line)"/></g>
+              <g class="appcard"><rect x="20" y="180" width="98" height="40" rx="10" fill="var(--surface)"/><circle cx="40" cy="200" r="9" fill="#e6dcff"/><rect x="55" y="192" width="48" height="6" rx="3" fill="var(--line-strong)"/><rect x="55" y="203" width="36" height="5" rx="2.5" fill="var(--line)"/></g>
+              <g class="appcard"><rect x="20" y="250" width="98" height="40" rx="10" fill="var(--surface)"/><circle cx="40" cy="270" r="9" fill="#d5f5e6"/><rect x="55" y="262" width="48" height="6" rx="3" fill="var(--line-strong)"/><rect x="55" y="273" width="30" height="5" rx="2.5" fill="var(--line)"/></g>
+              <circle cx="240" cy="180" r="34" fill="url(#hg)"/>
+              <rect x="340" y="58" width="104" height="44" rx="12" fill="var(--surface)"/><rect x="340" y="158" width="104" height="44" rx="12" fill="var(--surface)"/><rect x="340" y="258" width="104" height="44" rx="12" fill="var(--surface)"/>
+            </g>
+            <circle class="pulse" cx="240" cy="180" r="34" fill="none" stroke="#7c3aed" stroke-width="2"/>
+            <path d="M228 170h24M228 180h18M228 190h22" stroke="#fff" stroke-width="4" stroke-linecap="round"/>
+            <circle cx="358" cy="80" r="8" fill="var(--approved)"/><text x="372" y="85" class="svg-l">Approved</text>
+            <circle cx="358" cy="180" r="8" fill="var(--conditional)"/><text x="372" y="185" class="svg-l">Conditional</text>
+            <circle cx="358" cy="280" r="8" fill="var(--hold)"/><text x="372" y="285" class="svg-l">On hold</text>
+            <g class="dots">
+              <circle r="4" fill="#2f5bff" opacity="0"><set attributeName="opacity" to="1" begin="0s"/><animateMotion dur="2.4s" repeatCount="indefinite"><mpath href="#p1"/></animateMotion></circle>
+              <circle r="4" fill="#d97706" opacity="0"><set attributeName="opacity" to="1" begin=".6s"/><animateMotion dur="2.4s" begin=".6s" repeatCount="indefinite"><mpath href="#p2"/></animateMotion></circle>
+              <circle r="4" fill="#7c3aed" opacity="0"><set attributeName="opacity" to="1" begin="1.2s"/><animateMotion dur="2.4s" begin="1.2s" repeatCount="indefinite"><mpath href="#p3"/></animateMotion></circle>
+              <circle r="4" fill="#16a34a" opacity="0"><set attributeName="opacity" to="1" begin="1.8s"/><animateMotion dur="2.4s" begin="1.8s" repeatCount="indefinite"><mpath href="#p4"/></animateMotion></circle>
+              <circle r="4" fill="#16a34a" opacity="0"><set attributeName="opacity" to="1" begin=".3s"/><animateMotion dur="2s" begin=".3s" repeatCount="indefinite"><mpath href="#q1"/></animateMotion></circle>
+              <circle r="4" fill="#d97706" opacity="0"><set attributeName="opacity" to="1" begin="1s"/><animateMotion dur="2s" begin="1s" repeatCount="indefinite"><mpath href="#q2"/></animateMotion></circle>
+              <circle r="4" fill="#64748b" opacity="0"><set attributeName="opacity" to="1" begin="1.6s"/><animateMotion dur="2s" begin="1.6s" repeatCount="indefinite"><mpath href="#q3"/></animateMotion></circle>
+            </g>
+          </svg>
+        </div>
       </div>
-      <div class="steps3">
-        <div><span>1</span><b>Check</b> every application for missing or contradictory data, money, space, experience and timeline.</div>
-        <div><span>2</span><b>Allocate</b> territory slots by fit score - one store per pin, no clash with existing stores.</div>
-        <div><span>3</span><b>Onboard</b> each partner with next steps, a week-by-week plan and training in their language.</div>
+
+      <h2 class="sec-title">How it works</h2>
+      <div class="how4">
+        <div><span class="n">1</span><b>Check</b><p>Reads messy forms (“35 lakhs”, “seven”, “600 sqft”) and flags missing or contradictory answers.</p></div>
+        <div><span class="n">2</span><b>Score</b><p>Fit out of 100 on funds, space, experience, timeline and territory, with every point shown.</p></div>
+        <div><span class="n">3</span><b>Allocate</b><p>Best partner first, one store per pin, never next to our own stores, open slots respected.</p></div>
+        <div><span class="n">4</span><b>Onboard</b><p>Next steps, week-by-week plan, training in Kannada, Hindi or English, and a ready message.</p></div>
+      </div>
+
+      <h2 class="sec-title">What makes it different</h2>
+      <div class="diff4">
+        <div><i data-ic="target"></i><b>Path to yes</b><p>For anyone not approved, it tests every lever and shows the smallest change that gets them in.</p></div>
+        <div><i data-ic="chat"></i><b>Talk to it</b><p>“Why is APP-007 on hold?” or “APP-012 found a ground-floor space”: every decision re-runs live.</p></div>
+        <div><i data-ic="globe"></i><b>Speaks their language</b><p>Drafts each partner’s decision message in Kannada, Hindi or English.</p></div>
+        <div><i data-ic="users"></i><b>Human in the loop</b><p>Close calls are flagged for review, managers can override with a reason, and everything is logged.</p></div>
       </div>
     </section>
 
-    <!-- Results -->
-    <section id="results" class="hidden">
-      <div class="file-bar" id="fileBar"></div>
-      <div class="kpis" id="kpis"></div>
-      <div class="insights" id="insights"></div>
-
-      <div class="section-head">
-        <h2>Territories</h2>
-        <span class="muted" id="terSub"></span>
+    <!-- ============ Overview ============ -->
+    <section id="view-overview" class="view hidden">
+      <div class="page-head">
+        <div><h1>Expansion overview</h1><p class="sub" id="fileMeta"></p></div>
+        <div class="head-actions"><button class="btn" data-goto="decisions"><i data-ic="list"></i>See every decision</button></div>
       </div>
-      <div class="ter-grid" id="terGrid"></div>
+      <div class="stats" id="stats"></div>
+      <div class="grid-2">
+        <div class="card"><div class="card-head"><h3>Decision funnel</h3><span class="muted small">Click a segment to see who</span></div><div id="funnel"></div></div>
+        <div class="card"><div class="card-head"><h3>Needs your attention</h3><span class="muted small" id="attnCount"></span></div><div id="attention" class="attention"></div></div>
+      </div>
+      <div class="card"><div class="card-head"><h3>Territories</h3><span class="muted small" id="terSub"></span></div><div class="ter-grid" id="terGrid"></div></div>
+      <div class="card"><div class="card-head"><h3>Activity</h3><span class="muted small">Every update and override, and what it changed</span></div><div id="log" class="log"></div></div>
+    </section>
 
-      <div class="section-head">
-        <h2>Decisions</h2>
-        <div class="filters">
-          <input type="search" id="search" placeholder="Search name, ID, city, pin…">
-          <select id="statusFilter"><option value="">All decisions</option></select>
+    <!-- ============ Decisions ============ -->
+    <section id="view-decisions" class="view hidden">
+      <div class="page-head">
+        <div><h1>Decisions</h1><p class="sub">Every applicant, sorted by outcome. Click a card for the full story.</p></div>
+        <div class="toolbar">
+          <div class="search"><i data-ic="search"></i><input type="search" id="search" placeholder="Search name, ID, city, pin"></div>
+          <select id="cityFilter" aria-label="City"><option value="">All cities</option></select>
+          <div class="seg" id="modeSeg"><button data-mode="board" class="active">Board</button><button data-mode="table">Table</button></div>
         </div>
       </div>
-      <div class="table-wrap">
-        <table class="apps" id="appsTable">
-          <thead><tr><th>ID</th><th>Applicant</th><th>Location</th><th>Score</th><th>Decision</th><th>Why</th><th>Next action</th></tr></thead>
-          <tbody></tbody>
-        </table>
-      </div>
+      <div id="board" class="board"></div>
+      <div id="tableWrap" class="card table-card hidden"><table class="apps"><thead><tr><th>Applicant</th><th>Location</th><th>Score</th><th>Decision</th><th>Why</th><th>Next action</th></tr></thead><tbody id="tbody"></tbody></table></div>
+    </section>
 
-      <div class="section-head"><h2>Change log</h2><span class="muted">Every update you give in the chat, and what it changed</span></div>
-      <div class="log" id="log"><p class="muted">No updates yet. Tell the assistant something new, e.g. “APP-012 has now found a ground-floor space”.</p></div>
+    <!-- ============ Map ============ -->
+    <section id="view-map" class="view hidden">
+      <div class="page-head">
+        <div><h1>Territory map</h1><p class="sub">Click a city to see every pin code: who has it, who wants it, and what’s still free.</p></div>
+        <div class="legend">
+          <span><i class="lgd store"></i>Our store</span><span><i class="lgd approved"></i>Approved</span><span><i class="lgd conditional"></i>Conditional</span><span><i class="lgd wanted"></i>Wanted, not given</span><span><i class="lgd free"></i>Free</span>
+        </div>
+      </div>
+      <div class="map-layout">
+        <div class="card map-card"><svg id="mapSvg" role="img" aria-label="Map of Karnataka with target cities"></svg></div>
+        <div class="card" id="cityPanel"></div>
+      </div>
+    </section>
+
+    <!-- ============ Onboarding ============ -->
+    <section id="view-onboarding" class="view hidden">
+      <div class="page-head">
+        <div><h1>Onboarding</h1><p class="sub">From signed partner to open, trained store: openings, training batches and this week’s to-dos.</p></div>
+        <div class="legend">
+          <span><i class="lgd ph-site"></i>Site search / conditions</span><span><i class="lgd ph-setup"></i>Agreement &amp; site audit</span><span><i class="lgd ph-fit"></i>Fit-out &amp; hiring</span><span><i class="lgd ph-train"></i>Training</span><span><i class="lgd ph-open"></i>Opening</span>
+        </div>
+      </div>
+      <div class="card"><div class="card-head"><h3>Opening calendar</h3><span class="muted small" id="calSub"></span></div><div id="gantt" class="gantt-wrap"></div></div>
+      <div class="grid-2">
+        <div class="card"><div class="card-head"><h3>Training cohorts</h3><span class="muted small">Grouped by language and month: one trainer per batch</span></div><div id="cohorts" class="cohorts"></div></div>
+        <div class="card"><div class="card-head"><h3>Due in the next 7 days</h3><span class="muted small" id="dueSub"></span></div><div id="due" class="due"></div></div>
+      </div>
     </section>
   </main>
 
-  <aside class="chat" id="chat">
+  <!-- ============ Assistant ============ -->
+  <aside class="chat" id="chat" aria-label="Assistant">
     <div class="chat-head">
-      <div><b>Ask FranchiseFlow</b><div class="muted small">Ask about a decision, or give new information</div></div>
-      <button class="icon-btn" id="chatToggle" title="Minimise">–</button>
+      <span class="bot-ic"><i data-ic="sparkle"></i></span>
+      <div><b>Ask FranchiseFlow</b><small>Ask why, or tell it something new</small></div>
+      <button class="icon-btn" id="chatMin" title="Minimise" aria-label="Minimise assistant"><i data-ic="x"></i></button>
     </div>
     <div class="chat-body" id="chatBody"></div>
-    <div class="suggest" id="suggest"></div>
+    <div class="chips" id="chips"></div>
     <form class="chat-input" id="chatForm" autocomplete="off">
-      <input id="chatText" placeholder="e.g. Why is APP-007 on hold?" aria-label="Message">
-      <button class="btn primary" type="submit">Send</button>
+      <input id="chatText" placeholder="Ask about any applicant…" aria-label="Message">
+      <button class="send" type="submit" aria-label="Send"><i data-ic="send"></i></button>
     </form>
   </aside>
 </div>
+<button class="chat-fab hidden" id="chatFab"><i data-ic="sparkle"></i>Ask FranchiseFlow</button>
 
-<!-- Detail drawer -->
-<div class="drawer-bg hidden" id="drawerBg"></div>
-<aside class="drawer hidden" id="drawer" aria-label="Application detail">
-  <button class="icon-btn close" id="drawerClose" title="Close">×</button>
-  <div id="drawerBody"></div>
-</aside>
+<!-- Partner passport -->
+<div class="scrim hidden" id="scrim"></div>
+<aside class="passport hidden" id="passport" aria-label="Applicant detail"></aside>
 
-<!-- How it works modal -->
-<div class="drawer-bg hidden" id="howBg"></div>
-<div class="modal hidden" id="how">
-  <button class="icon-btn close" id="howClose" title="Close">×</button>
-  <div id="howBody"></div>
+<!-- Modals -->
+<div class="modal hidden" id="modal" role="dialog" aria-modal="true"><div class="modal-card" id="modalCard"></div></div>
+
+<!-- Processing -->
+<div class="processing hidden" id="processing">
+  <div class="proc-card">
+    <div class="proc-orb"></div>
+    <h3>Deciding…</h3>
+    <ul id="procSteps"></ul>
+  </div>
 </div>
-
-<button class="chat-fab hidden" id="chatFab">Ask FranchiseFlow</button>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="engine.js"></script>
 <script src="loader.js"></script>
+<script src="messages.js"></script>
 <script src="chat.js"></script>
 <script src="sample-data.js"></script>
 <script src="app.js"></script>

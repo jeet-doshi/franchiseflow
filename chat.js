@@ -231,6 +231,7 @@
     var knock = changes.filter(function (c) { return focusIds.indexOf(c.id) < 0; });
     function line(c) {
       var st = c.from === c.to ? chip(c.to) + ' (unchanged)' : (c.from ? chip(c.from) + ' → ' : '') + chip(c.to);
+      if (c.s0 === null) return appLink(c.id) + ' (new): ' + chip(c.to) + ' &nbsp;score <b>' + c.s1 + '</b>';
       return appLink(c.id) + ': ' + st + (c.s0 !== c.s1 ? ' &nbsp;score ' + c.s0 + ' → <b>' + c.s1 + '</b>' : '');
     }
     var html = '<p><b>Re-ran all decisions.</b></p>' + (main.length ? list(main.map(line)) : '');
@@ -327,11 +328,15 @@
     return html;
   }
 
-  var HELP = '<p>I can explain decisions and take new information. Try:</p>' + list([
-    '<i>Why is APP-007 on hold?</i>', '<i>Next steps for APP-003</i> (onboarding and training plan)', '<i>Compare APP-004 and APP-009</i>',
-    '<i>APP-012 has now found a ground-floor space</i>', '<i>APP-005 can now invest 30 lakh</i>', '<i>APP-002 has withdrawn</i>',
-    '<i>TER-02 now has 2 open slots</i>', '<i>What if APP-010 moves to pin 570008?</i> (preview, nothing saved)',
-    '<i>Show on hold</i> · <i>Summary</i> · <i>How do you score?</i> · <i>Undo</i>'
+  var HELP = '<p>Ask me about any decision, or tell me something new. Examples:</p>' + list([
+    '<b>Why</b> · <i>Why is APP-007 on hold?</i> · <i>Compare APP-004 and APP-021</i>',
+    '<b>Plan</b> · <i>Next steps for APP-002</i> · <i>Training cohorts</i> · <i>Opening calendar</i>',
+    '<b>Path to yes</b> · <i>What would it take for APP-018 to be approved?</i>',
+    '<b>Message</b> · <i>Draft a message for APP-001 in Kannada</i>',
+    '<b>New facts</b> · <i>APP-012 has now found a ground-floor space</i> · <i>APP-002 has withdrawn</i> · <i>TER-02 now has 2 open slots</i>',
+    '<b>New applicant</b> · <i>New applicant APP-030 Kavya Rao, Tumakuru 572102, 25 lakh, 4 years experience, rented ground floor 500 sq ft, Kannada</i>',
+    '<b>Override</b> · <i>Approve APP-012 because she has a signed lease next door</i>',
+    '<i>What if…</i> previews without saving · <i>undo</i> reverts · <i>How do you score?</i>'
   ]);
 
   var SCORING = '<p>Every application gets a fit score out of 100, then slots are handed out best-score-first, one store per pin code:</p>' + list([
@@ -343,6 +348,82 @@
     '<b>Adjustments</b> - catchment overlap with an existing store, data contradictions, signals in the notes (loan dependency, indecision, competing brand).'
   ]) + '<p>Hard rules: no store in a pin that already has one; only one approved partner per pin; data that contradicts itself goes on hold until clarified.</p>';
 
+  // ---------------------------------------------------------------- new features
+  function commitChange(state, newData, headerHtml, focusIds, extra) {
+    var after = E.evaluate(newData, { today: state.today });
+    var html = headerHtml + renderDiff(diff(state.result, after), focusIds);
+    if (focusIds.length === 1) html += '<div class="nested">' + explain(res(after, focusIds[0]), after) + '</div>';
+    html += '<p class="muted">Type <i>undo</i> to reverse this.</p>';
+    return Object.assign({ html: html, data: newData, result: after, committed: true, focus: focusIds[0] }, extra || {});
+  }
+
+  function addApplicant(raw, state, idNum) {
+    var data = state.data;
+    var nums = data.applications.map(function (a) { return H.canonicalAppId(a.id) || 0; });
+    var n = idNum ? parseInt(idNum, 10) : Math.max.apply(null, nums.concat([0])) + 1;
+    var id = 'APP-' + String(n).padStart(3, '0');
+    if (nums.indexOf(n) >= 0) return { html: '<p>' + appLink(id) + ' already exists - tell me what changed about it instead.</p>' };
+    var name = (raw.match(/(?:named|name is|name:|called)\s+([A-Za-z][A-Za-z.]*(?:\s+[A-Z][A-Za-z.]*)*)/) || raw.match(/\bAPP[\s\-_#]*\d+\s*[:,\-–]?\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/) || [])[1] || '';
+    var pin = (raw.match(/\b(\d{6})\b/) || [])[1] || '';
+    var city = findCity(raw) || H.cityFromPin(pin);
+    var biz = (raw.match(/\b(?:runs|owns|manages|ran|managed|works (?:at|in|as))\s+(?:a |an |two |his |her )?([^,.;]+)/i) || [])[1] || '';
+    if (/shop|store|space|floor|unit/.test(biz) && /ground|upper|mall|floor|sq/.test(biz)) biz = '';
+    var blank = { id: id, name: name.trim(), city: city, cityRaw: city, state: 'Karnataka', pin: pin, pinRaw: pin, investment: null, experience: null, business: biz.trim(),
+      space: 'Not yet identified', floor: 'Not known', size: null, launchMonths: null, language: 'English', notes: raw, added: true };
+    var tmp = { applications: [blank], territories: data.territories, stores: data.stores };
+    var u = parseUpdate(raw.replace(/\b(new|another)\b/gi, ''), tmp, [id], []);
+    if (u && u.app[id]) Object.keys(u.app[id]).forEach(function (k) { if (k !== 'noteAppend' && k !== 'withdrawn' && k !== 'city' || (k === 'city' && !blank.city)) blank[k] = u.app[id][k]; });
+    if (blank.experience === null) { var ex = raw.match(/(\d+(?:\.\d+)?)\s*\+?\s*(?:years?|yrs?)/i); if (ex) blank.experience = parseFloat(ex[1]); }
+    if (blank.launchMonths === null) { var mo = raw.match(/(\d+)\s*months?/i); if (mo) blank.launchMonths = parseInt(mo[1], 10); }
+    var d = H.clone(data);
+    d.applications.push(blank);
+    var got = [['Name', blank.name], ['City', blank.city], ['Pin', blank.pin], ['Investment', blank.investment !== null ? H.fmtL(blank.investment) : ''], ['Experience', blank.experience !== null ? blank.experience + ' yrs' : ''],
+      ['Business', blank.business], ['Space', blank.space + (blank.space !== 'Not yet identified' ? ', ' + blank.floor + (blank.size ? ', ' + blank.size + ' sq ft' : '') : '')], ['Launch', blank.launchMonths !== null ? blank.launchMonths + ' months' : ''], ['Language', blank.language]];
+    var missing = got.filter(function (g) { return !g[1]; }).map(function (g) { return g[0]; });
+    var header = '<p><b>Added new application ' + appLink(id) + '.</b></p>' + list(got.filter(function (g) { return g[1]; }).map(function (g) { return g[0] + ': <b>' + esc(g[1]) + '</b>'; }));
+    if (missing.length) header += '<p class="muted">Not given: ' + missing.join(', ') + ' - treated as unknown. Add them by telling me, e.g. "' + id + ' can invest 30 lakh".</p>';
+    return commitChange(state, d, header, [id]);
+  }
+
+  function overrideApp(state, id, status, reason) {
+    var d = H.clone(state.data);
+    var a = d.applications.filter(function (x) { return x.id === id; })[0];
+    if (!status) {
+      if (!a.override) return { html: '<p>' + appLink(id) + ' has no override.</p>' };
+      delete a.override;
+      return commitChange(state, d, '<p><b>Override removed</b> for ' + appLink(id) + ' - the engine decides again.</p>', [id]);
+    }
+    if (!reason) return { html: '<p>Overrides need a reason so the decision stays explainable. Try: <i>"' + (status === 'APPROVED' ? 'Approve' : status === 'REJECTED' ? 'Reject' : 'Hold') + ' ' + esc(id) + ' because …"</i></p>' };
+    a.override = { status: status, reason: reason, at: new Date().toISOString() };
+    return commitChange(state, d, '<p><b>Manager override</b>: ' + appLink(id) + ' → ' + chip(status) + ' <span class="muted">(“' + esc(reason) + '”)</span></p>', [id]);
+  }
+
+  function pathHtml(state, id) {
+    var p = E.pathToYes(state.data, id, { today: state.today });
+    var r = res(state.result, id);
+    if (!p.options.length) return '<p>' + appLink(id) + ' is ' + chip(r.status) + (r.status === 'APPROVED' ? ' already.' : ' - nothing on our side would change that.') + '</p>';
+    var good = p.options.filter(function (o) { return o.better; });
+    var html = '<p><b>Path to yes for ' + appLink(id) + '</b> (now ' + chip(r.status) + ', score ' + r.score + '). I re-ran every decision for each change:</p>';
+    html += list((good.length ? good : p.options).slice(0, 6).map(function (o) {
+      return (o.side === 'brand' ? '<span class="tag brand">Brand</span> ' : o.side === 'combined' ? '<span class="tag combo">All together</span> ' : '<span class="tag">Applicant</span> ') + esc(o.label) + ' → ' + chip(o.status) + ' <span class="muted">score ' + o.score + '</span>';
+    }));
+    if (!good.length) html += '<p class="muted">None of these alone moves the decision.</p>';
+    return html;
+  }
+
+  function portfolioHtml(result, low) {
+    var pf = E.portfolio(result);
+    var html = '';
+    if (/cohort|batch|train/.test(low) || !/calendar|open|week|action|to-?do/.test(low)) {
+      html += '<p><b>Training cohorts</b> - partners grouped by language and month, so one trainer runs each batch:</p>' + list(pf.cohorts.map(function (c) {
+        return '<b>' + esc(c.language) + ' · ' + esc(c.month) + '</b>: ' + c.members.map(function (m) { return appLink(m.id); }).join(', ');
+      }));
+    }
+    if (/calendar|open/.test(low)) html += '<p><b>Opening calendar</b>:</p>' + list(pf.openings.map(function (o) { return esc(o.launchDate) + ' - ' + appLink(o.id) + ' ' + esc(o.name) + ', ' + esc(o.city) + ' ' + chip(o.status); }));
+    if (/week|action|to-?do/.test(low)) html += '<p><b>Due in the next 7 days</b>:</p>' + list(pf.actions.filter(function (a) { return a.kind !== 'partner' || /3 days/.test(a.by); }).slice(0, 12).map(function (a) { return appLink(a.id) + ' - ' + esc(a.text); }));
+    return html;
+  }
+
   // ---------------------------------------------------------------- main entry
   function respond(text, state) {
     var data = state.data, result = state.result;
@@ -353,7 +434,43 @@
     if (/^(undo|revert|go back)/.test(low)) return { undo: true };
 
     var appIds = findApps(raw, data), terIds = findTers(raw, data);
-    var isWhatIf = /^(what if|what happens if|suppose|hypothetically|if )/.test(low);
+
+    // ---- a brand-new application typed into the chat
+    var newId = (raw.match(/\bapp(?:lication)?[\s\-_#]*0*(\d{1,4})\b/i) || [])[1];
+    var isNew = /^(new|add|another|adding)\b|\b(new (applicant|application)|has (just )?applied|wants to apply)\b/i.test(raw);
+    if (isNew && (!newId || !appIds.length)) return addApplicant(raw, state, newId);
+
+    // ---- manager override: "approve APP-012 because ...", "put APP-014 on hold: ..."
+    var ov = low.match(/^(?:override\s+\S+\s+(?:to|as)\s+)?(approve|reject|decline|hold|put\s+\S+\s+on\s+hold|wait-?list|override)\b/);
+    if (ov && appIds.length) {
+      if (/(clear|remove|undo|cancel) (the )?override/.test(low)) return overrideApp(state, appIds[0], null, '');
+      var word = (low.match(/\b(approve|approved|reject|rejected|decline|hold|wait-?list)\b/) || [])[1] || '';
+      var st = /approv/.test(word) ? 'APPROVED' : /reject|declin/.test(word) ? 'REJECTED' : /wait/.test(word) ? 'WAITLIST' : /hold/.test(word) ? 'HOLD' : null;
+      if (st) {
+        var reason = (raw.match(/(?:because|reason[:\s]|as |since|due to|:|—| - )\s*(.+)$/i) || [])[1] || '';
+        return overrideApp(state, appIds[0], st, reason.trim());
+      }
+    }
+    if (/(clear|remove|undo|cancel) (the )?override/.test(low) && appIds.length) return overrideApp(state, appIds[0], null, '');
+
+    // ---- path to yes
+    if (appIds.length && /(what would it take|path to yes|how (can|could|do|does|would) .* (get|be|become) (approved|accepted|a yes|selected)|what (does|do|should) .* (need|have) to (get|be) (approved|accepted)|what.* (change|fix).* (approv|yes)|how to get .* approved|make .* approved)/.test(low)) return { html: pathHtml(state, appIds[0]), focus: appIds[0] };
+
+    // ---- message to the applicant
+    if (appIds.length && /(message|draft|whatsapp|e-?mail|letter|write to|notify|inform|communicat|what (do|should) we (tell|say))/.test(low)) {
+      var langAsk = (low.match(/\b(kannada|hindi|english)\b/) || [])[1];
+      var M = root.FranchiseMessages || (typeof require !== 'undefined' ? require('./messages.js') : null);
+      if (M) {
+        var rr = res(result, appIds[0]);
+        var dr = M.draft(rr, langAsk ? langAsk.charAt(0).toUpperCase() + langAsk.slice(1) : null);
+        return { html: '<p>Draft for ' + appLink(rr.app.id) + ' in <b>' + dr.language + '</b> (their preferred language is ' + esc(rr.app.language) + '):</p><pre class="msg-draft">' + esc(dr.text) + '</pre><p class="muted">Open the applicant to copy it or switch language.</p>', focus: rr.app.id, tab: 'message' };
+      }
+    }
+
+    // ---- portfolio: openings calendar, training cohorts, this week's actions
+    if (!appIds.length && /(cohort|training batch|batches|calendar|openings?|when .* open|this week|due (this|next) week|action items|to-?do list)/.test(low)) return { html: portfolioHtml(result, low), view: /cohort|batch|calendar|opening/.test(low) ? 'onboarding' : null };
+
+    var isWhatIf =/^(what if|what happens if|suppose|hypothetically|if )/.test(low);
     var isQuestion = (/^(why|how|what|which|who|when|where|is|are|does|do|did|can|could|would|will|was|were|should|show|list|explain|tell|give|compare|summar|any)\b/.test(low) || /\?\s*$/.test(low)) && !isWhatIf;
     var updateVerb = /(\bnow\b|found|secured|has got|got a|increased|decreased|raised|reduced|changed|updated|moved|shift|withdr|dropped|signed|arranged|sanctioned|approved|no longer|instead|can invest|wants to|corrected|actually|has \d|have \d|added|closed|opened|lost|bought|rented|leased|backed out|is ready|ready to)/.test(low);
 
@@ -425,7 +542,7 @@
     return { html: '<p>I did not catch an application or territory in that. ' + HELP.replace('<p>I can explain decisions and take new information. Try:</p>', '</p><p>Try:</p>') };
   }
 
-  var api = { respond: respond, parseUpdate: parseUpdate, findApps: findApps, explain: explain, planHtml: planHtml, esc: esc, chip: chip };
+  var api = { diff: diff, renderDiff: renderDiff, commitChange: commitChange, respond: respond, parseUpdate: parseUpdate, findApps: findApps, explain: explain, planHtml: planHtml, esc: esc, chip: chip };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.FranchiseChat = api;
 })(this);

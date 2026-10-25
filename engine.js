@@ -222,19 +222,55 @@
         var first = seen[key];
         var weaker = first.score >= r.score ? r : first;
         var stronger = weaker === r ? first : r;
-        weaker.blocking.push({ code: 'duplicate', text: 'Looks like a duplicate of ' + stronger.app.id + ' (same name and city). We keep one application per person.' });
+        weaker.blocking.push({ code: 'duplicate', text: 'Looks like a duplicate of ' + stronger.app.id + ' (same name and city). We keep one application per person.', action: 'Call to confirm whether this is the same person as ' + stronger.app.id + '; keep one application and close the other.' });
         weaker.duplicateOf = stronger.app.id;
       } else seen[key] = r;
     });
 
     // ---- Allocation: best score first, one store per pin, respect open slots
     var taken = {}; // pin -> appId
-    var eligible = results.filter(function (r) { return r.preStatus === 'ELIGIBLE' && !r.blocking.length; });
+    // Manager overrides: a forced approval jumps the queue (it still can't break the one-store-per-pin
+    // rule or use a pin we can't trust); a forced hold/reject never enters allocation.
+    var HARD = /^(store_pin|pin_missing|pin_mismatch|city)$/;
+    results.forEach(function (r) {
+      var o = r.app.override;
+      if (!o || r.preStatus === 'WITHDRAWN') return;
+      if (o.status === 'APPROVED') {
+        var hard = r.blocking.filter(function (b) { return HARD.test(b.code); });
+        if (hard.length || !r.territory) { r.overrideBlocked = hard.length ? hard[0].text : 'Pin is not in a target territory.'; return; }
+        r.forceApprove = true;
+        r.blocking = [];
+        r.preStatus = 'ELIGIBLE';
+      }
+    });
+    // Applicants whose own pin can't be used (store already there, or outside target pins) compete like
+    // pin losers: at a relocation score, because moving means giving up the shop they have.
+    results.forEach(function (r) {
+      if (r.preStatus !== 'ELIGIBLE' || !r.blocking.length) return;
+      if (!r.blocking.every(function (b) { return b.code === 'store_pin' || b.code === 'no_territory'; })) return;
+      var b = r.blocking[0];
+      var t = r.territory;
+      if (b.code === 'no_territory') {
+        t = territories.filter(function (x) { return x.city === r.app.city && x.slots > 0; })
+          .sort(function (x, y) { return ({ High: 0, Medium: 1, Low: 2 })[x.priority] - ({ High: 0, Medium: 1, Low: 2 })[y.priority]; })[0];
+      }
+      if (!t) return;
+      var sp = r.breakdown.filter(function (x) { return x.k === 'Space readiness'; })[0];
+      r.territory = t;
+      r.relocating = true;
+      r.relocateWhy = b.text;
+      r.relocationScore = Math.max(0, r.score - (sp ? sp.pts : 0) + 5);
+      r.blocking = [];
+    });
+    var eligible = results.filter(function (r) {
+      if (r.app.override && r.app.override.status !== 'APPROVED') return false;
+      return r.preStatus === 'ELIGIBLE' && !r.blocking.length;
+    });
+    function rank(r) { return (r.forceApprove ? 1000 : 0) + (r.relocating ? r.relocationScore : r.score); }
     eligible.sort(function (a, b) {
-      return b.score - a.score || readiness(b) - readiness(a) || a.idNum - b.idNum;
+      return rank(b) - rank(a) || readiness(b) - readiness(a) || a.idNum - b.idNum;
     });
     var queue = eligible.slice();
-    function rank(r) { return r.relocating ? r.relocationScore : r.score; }
     function enqueue(r) {
       var i = 0;
       while (i < queue.length && (rank(queue[i]) > rank(r) || (rank(queue[i]) === rank(r) && queue[i].idNum < r.idNum))) i++;
@@ -256,12 +292,17 @@
       }
       var full = t.allocated.length >= t.slots;
       if (r.relocating) {
-        var winner = byId(results, r.pinLostTo);
+        var winner = r.pinLostTo ? byId(results, r.pinLostTo) : null;
         var free = freePins(t);
-        r.competitor = winner.app.id;
-        var lostTxt = 'Pin ' + pin + ' went to ' + winner.app.id + ' (score ' + winner.score + ' vs ' + r.score + ') - the brand never opens two stores in one pin code.';
-        r.reasons.push({ t: '-', text: lostTxt });
+        if (winner) r.competitor = winner.app.id;
+        var lostTxt = winner ? 'Pin ' + pin + ' went to ' + winner.app.id + ' (score ' + winner.score + ' vs ' + r.score + ') - the brand never opens two stores in one pin code.' : r.relocateWhy;
+        var lostShort = winner ? 'Lost pin ' + pin + ' to ' + winner.app.id : (/already has our store/.test(r.relocateWhy) ? 'Pin ' + pin + ' already has our store' : 'Pin ' + pin + ' is outside our target areas');
+        r.reasons.unshift({ t: '-', text: lostTxt });
         if (!full && free.length) {
+          // prefer a pin no other applicant asked for, so a relocation never takes someone's ready shop
+          var wanted = {};
+          results.forEach(function (x) { if (x !== r && x.preStatus !== 'WITHDRAWN') wanted[x.app.pin] = true; });
+          free.sort(function (p, q) { return (wanted[p] ? 1 : 0) - (wanted[q] ? 1 : 0); });
           var newPin = free[0];
           taken[newPin] = r.app.id;
           t.allocated.push(r.app.id);
@@ -269,10 +310,12 @@
           r.suggestedPins = free;
           r.status = 'CONDITIONAL';
           r.conditions.unshift('Relocate: find a ground-floor or mall unit in pin ' + newPin + ' (reserved for you for 45 days; other free pins: ' + (free.slice(1, 4).join(', ') || 'none') + ').');
-          r.headline = 'Lost pin ' + pin + ' to ' + winner.app.id + ', but ' + t.id + ' had a slot left - reserved at pin ' + newPin + ' if they relocate.';
+          r.reasons.push({ t: '+', text: 'Even after losing the space points for moving (relocation score ' + r.relocationScore + '), still among the best for ' + t.id + ' - free pin ' + newPin + ' reserved.' });
+          r.headline = lostShort + ', but they are strong enough to keep a slot in ' + t.id + ' - pin ' + newPin + ' reserved if they relocate.';
         } else {
           r.status = 'WAITLIST';
-          r.headline = 'Lost pin ' + pin + ' to ' + winner.app.id + '; if they moved pins they would lose their space (relocation score ' + r.relocationScore + '), and ' + t.id + '\'s remaining slot(s) went to partners ready elsewhere.';
+          r.headline = lostShort + '; moving would cost them their shop (relocation score ' + r.relocationScore + '), and ' + t.id + '\'s slot(s) went to partners ready elsewhere.';
+          r.suggestedPins = free;
           r.reasons.push({ t: '-', text: 'Relocation score ' + r.relocationScore + ' (no space in a new pin) is below the partners who took ' + t.id + '\'s slots: ' + t.allocated.join(', ') + '.' });
           r.actions.unshift('First backup for ' + t.id + ': offer a free pin (' + (free.slice(0, 3).join(', ') || 'none free now') + ') if an approved partner drops out.');
           t.waitlist.push(r.app.id);
@@ -291,14 +334,45 @@
       }
       taken[pin] = r.app.id;
       t.allocated.push(r.app.id);
-      r.status = r.conditions.length ? 'CONDITIONAL' : 'APPROVED';
+      r.status = r.conditions.length && !r.forceApprove ? 'CONDITIONAL' : 'APPROVED';
+      if (r.forceApprove) { r.headline = 'Approved by manager override - slot ' + t.allocated.length + ' of ' + t.slots + ' in ' + t.id + '.'; continue; }
       r.headline = r.status === 'APPROVED'
         ? 'Strong fit (' + r.score + '/100) and pin ' + pin + ' is free - slot ' + t.allocated.length + ' of ' + t.slots + ' in ' + t.id + '.'
         : 'Good fit (' + r.score + '/100) - slot in ' + t.id + ' reserved for 30 days while ' + r.conditions.length + ' condition(s) are cleared.';
     }
 
+    // Alternative pins are only offered once allocation is done, so we never offer a pin someone just won
+    results.forEach(function (r) {
+      r.blocking.forEach(function (b) {
+        if (b.code !== 'store_pin' && b.code !== 'no_territory') return;
+        var pool = b.code === 'store_pin' && r.territory ? [r.territory] : territories.filter(function (x) { return x.city === r.app.city && x.allocated.length < x.slots; });
+        var pins = [];
+        pool.forEach(function (x) { freePins(x).forEach(function (p) { if (pins.indexOf(p) < 0) pins.push(p); }); });
+        r.suggestedPins = pins;
+        b.action = pins.length ? 'Offer a free pin instead: ' + pins.slice(0, 4).join(', ') + '.' : 'No free pin left in ' + (r.territory ? r.territory.id : r.app.city) + ' right now - keep on file.';
+        if (!pins.length && r.blocking.length === 1 && r.preStatus === 'ELIGIBLE') {
+          r.preStatus = 'WAITLIST';
+          r.headline = (b.code === 'store_pin' ? 'Pin ' + r.app.pin + ' already has our store' : 'Pin ' + r.app.pin + ' is outside our target areas') + ', and every slot in ' + (r.territory ? r.territory.id : r.app.city) + ' is now filled - kept on the waitlist.';
+          r.reasons.unshift({ t: '-', text: b.text });
+          r.blocking = [];
+          r.actions.push('Offer a free pin as soon as a slot opens in ' + (r.territory ? r.territory.id : r.app.city) + '.');
+        }
+      });
+    });
+
     // Anything not decided yet keeps its pre-status
     results.forEach(function (r) {
+      var o = r.app.override;
+      if (o && r.preStatus !== 'WITHDRAWN' && o.status !== 'APPROVED') {
+        r.status = o.status;
+        r.headline = 'Manager decision: ' + (o.reason || 'no reason given') + '.';
+        r.reasons.unshift({ t: '!', text: 'Set to ' + STATUS[o.status].label + ' by a manager override: ' + (o.reason || 'no reason given') + '.' });
+        return;
+      }
+      if (o && o.status === 'APPROVED' && r.overrideBlocked && !r.status) {
+        r.reasons.unshift({ t: '!', text: 'Manager asked to approve, but that would break a hard rule: ' + r.overrideBlocked });
+      }
+      if (r.forceApprove) r.reasons.unshift({ t: '!', text: 'Approved by a manager override: ' + (o.reason || 'no reason given') + '. (Engine fit score on its own: ' + r.score + '/100.)' });
       if (r.status) return;
       if (r.preStatus === 'WITHDRAWN') { r.status = 'WITHDRAWN'; return; }
       if (r.preStatus === 'REJECTED') { r.status = 'REJECTED'; return; }
@@ -325,6 +399,22 @@
       t.filled = t.allocated.length;
       t.remaining = Math.max(0, t.slots - t.allocated.length);
       t.freePins = freePins(t);
+    });
+
+    // Confidence: tell the manager which decisions deserve a human look
+    results.forEach(function (r) {
+      r.confidence = 'high'; r.reviewNote = '';
+      var comp = r.competitor ? byId(results, r.competitor) : null;
+      if (r.app.override) { r.confidence = 'manual'; r.reviewNote = 'Manager override: ' + (r.app.override.reason || 'no reason'); return; }
+      if (r.status === 'WITHDRAWN') return;
+      if (r.flags.length) { r.confidence = 'review'; r.reviewNote = (/blank/i.test(r.flags[0]) ? 'Form is incomplete: ' : 'Form contradicts itself: ') + r.flags[0] + '.'; return; }
+      if (r.status === 'WAITLIST' && comp && comp.score - r.score <= 3) { r.confidence = 'review'; r.reviewNote = 'Close call: only ' + (comp.score - r.score) + ' point(s) behind ' + comp.app.id + '.'; return; }
+      if (r.status === 'APPROVED' || r.status === 'CONDITIONAL') {
+        var rival = results.filter(function (x) { return x.status === 'WAITLIST' && x.territoryId === r.territoryId && r.score - x.score <= 3 && r.score >= x.score; })[0];
+        if (rival) { r.confidence = 'review'; r.reviewNote = 'Close call: ' + rival.app.id + ' is only ' + (r.score - rival.score) + ' point(s) behind.'; return; }
+      }
+      if (r.status === 'REJECTED' && r.score >= A.minScoreToProceed - 5) { r.confidence = 'review'; r.reviewNote = 'Borderline: score ' + r.score + ' is within 5 points of the bar.'; return; }
+      if (r.status === 'HOLD') { r.confidence = 'waiting'; r.reviewNote = 'Waiting on one answer from the applicant.'; }
     });
 
     return { results: results, territories: territories, insights: buildInsights(results, territories), assumptions: A, evaluatedAt: today.toISOString() };
@@ -415,7 +505,7 @@
       }
       if (space === 'Not yet identified') {
         spacePts = 5;
-        if (size) r.flags.push('Space size given (' + size + ' sq ft) but no space identified - size ignored');
+        if (app.sizeRaw) r.flags.push('Space size given (' + app.sizeRaw + ' sq ft) but no space identified - size ignored');
         r.conditions.push('Find a ground-floor or mall unit of ' + A.idealSpaceSqft[0] + '+ sq ft in pin ' + (app.pin || '?') + ' within 45 days (brand site team shares 3 leads).');
         r.reasons.push({ t: '-', text: 'No shop space yet - adds ~6 weeks for site search.' });
       } else {
@@ -571,7 +661,10 @@
     step('Inventory, POS go-live & soft launch', W.preLaunch, 'Partner + Ops', 'Receive opening stock, test billing, soft launch to friends & local residents.');
     var launch = addWeeks(today, wk);
     steps.push({ name: 'Grand opening + 30/60/90-day reviews', start: wk, end: wk + 13, owner: 'Area manager', detail: 'Weekly sales call for 4 weeks, then reviews at day 30/60/90 against target.' });
-    steps.forEach(function (s) { s.startDate = fmtDate(addWeeks(today, s.start)); s.endDate = fmtDate(addWeeks(today, s.end)); });
+    steps.forEach(function (s) {
+      s.startISO = addWeeks(today, s.start).toISOString(); s.endISO = addWeeks(today, s.end).toISOString();
+      s.startDate = fmtDate(addWeeks(today, s.start)); s.endDate = fmtDate(addWeeks(today, s.end));
+    });
 
     var modules = [
       { name: 'Brand, products & customer promise', days: 2 },
@@ -602,7 +695,7 @@
     var payback = Math.round(cost / profit);
 
     return {
-      steps: steps, weeks: wk, launchDate: fmtDate(launch), festival: festival, launchMonths: launchMonths, targetMonths: targetMonths, gapMonths: gap,
+      steps: steps, weeks: wk, launchDate: fmtDate(launch), launchISO: launch.toISOString(), festival: festival, launchMonths: launchMonths, targetMonths: targetMonths, gapMonths: gap,
       training: { language: lang, track: novice ? 'Full track (new to retail)' : 'Fast track (experienced)', weeks: trainWeeks, modules: modules, shadowStore: shadow ? shadow.id + ' - ' + shadow.city + ' (' + shadow.pin + ')' : 'Virtual sessions + Bengaluru flagship' },
       staff: staff,
       economics: { setupCost: cost, monthlySales: round(sales, 1), monthlyProfit: round(profit, 2), paybackMonths: payback },
@@ -641,7 +734,7 @@
   function nextSteps(r, needSite, lang) {
     var out = [];
     var d = 0;
-    if (r.status === 'CONDITIONAL') r.conditions.forEach(function (c) { out.push({ by: 'Condition', text: c }); });
+    r.conditions.forEach(function (c) { out.push({ by: r.status === 'CONDITIONAL' ? 'Condition' : 'Also do', text: c }); });
     out.push({ by: 'Within 3 days', text: 'Welcome call with the assigned expansion manager (' + lang + '-speaking) and onboarding portal invite.' });
     out.push({ by: 'Within 7 days', text: 'Upload KYC, PAN, GST, bank statement (proof of funds) and ' + (needSite ? 'shortlisted site options.' : 'property papers / rent agreement for the site.') });
     out.push({ by: 'Within 14 days', text: 'Review and sign the franchise agreement; pay the franchise fee to lock the slot.' });
@@ -739,9 +832,92 @@
     ['ST-10', 'Belagavi', '590001', 2024]
   ].map(function (s) { return { id: s[0], city: s[1], pin: s[2], year: s[3] }; });
 
+  // ---------------------------------------------------------------------------
+  // Path to yes: the smallest realistic changes that would move an applicant forward.
+  // Tries each lever on its own, then all applicant-side levers together, re-running the
+  // whole allocation each time (so slot competition is respected).
+  // ---------------------------------------------------------------------------
+  function pathToYes(data, id, opts) {
+    var base = evaluate(data, opts);
+    var r = byId(base.results, id);
+    if (!r || r.status === 'APPROVED' || r.status === 'WITHDRAWN') return { current: r, options: [] };
+    var a = r.app, info = CITIES[a.city], tier = info ? info.tier : 2, cost = ASSUMPTIONS.setupCost[tier];
+    var levers = [];
+    function lever(label, patch, side) { levers.push({ label: label, patch: patch || {}, side: side || 'applicant' }); }
+    var codes = r.blocking.map(function (b) { return b.code; });
+    if (codes.indexOf('pin_mismatch') >= 0 && cityFromPin(a.pin)) lever('Confirm the store is in ' + cityFromPin(a.pin) + ' (matches pin ' + a.pin + ')', { city: cityFromPin(a.pin) });
+    if ((codes.indexOf('store_pin') >= 0 || codes.indexOf('no_territory') >= 0) && r.suggestedPins && r.suggestedPins.length) lever('Move the store to free pin ' + r.suggestedPins[0], { pin: r.suggestedPins[0] });
+    if (a.investment === null || a.investment === undefined) lever('Declare an investment of ' + fmtL(cost), { investment: cost });
+    else if (a.investment < cost) lever('Raise funds to ' + fmtL(cost) + ' (+' + fmtL(cost - a.investment) + ')', { investment: cost });
+    if (a.space === 'Not yet identified' || a.floor === 'Upper' || a.floor === 'Not known') lever('Secure a ground-floor shop of ~450 sq ft', { space: a.space === 'Not yet identified' ? 'Rented' : a.space, floor: 'Ground', size: a.size && a.size >= 300 ? a.size : 450, spaceUpdated: true });
+    else if (!a.size || a.size < ASSUMPTIONS.minSpaceSqft) lever('Confirm a shop of at least 400 sq ft', { size: 450 });
+    var sigs = { loan: 'Get the bank loan sanctioned', uncertain: 'Confirm commitment with a token deposit', conflict: 'Exit the competing brand', absentee: 'Commit to running the store full-time' };
+    r.signals.forEach(function (s) { if (sigs[s.key]) lever(sigs[s.key], { clearedSignals: (a.clearedSignals || []).concat([s.key]) }); });
+    if (a.launchMonths !== null && a.launchMonths !== undefined && r.realisticMonths && a.launchMonths < r.realisticMonths) lever('Accept a realistic launch of ' + r.realisticMonths + ' months', { launchMonths: r.realisticMonths });
+    if ((r.status === 'WAITLIST' || r.status === 'HOLD') && r.territoryId) {
+      var t = base.territories.filter(function (x) { return x.id === r.territoryId; })[0];
+      if (t && t.remaining === 0) levers.push({ label: 'Brand adds one more slot in ' + t.id, patch: {}, ter: { id: t.id, slots: t.slots + 1 }, side: 'brand' });
+    }
+
+    function run(patches, ter) {
+      var d = clone(data);
+      var app = d.applications.filter(function (x) { return x.id === id; })[0];
+      patches.forEach(function (p) {
+        Object.keys(p).forEach(function (k) {
+          if (k === 'clearedSignals') app.clearedSignals = (app.clearedSignals || []).concat(p[k]).filter(function (v, i, arr) { return arr.indexOf(v) === i; });
+          else app[k] = p[k];
+        });
+      });
+      if (ter) d.territories.forEach(function (x) { if (x.id === ter.id) x.slots = ter.slots; });
+      var res = byId(evaluate(d, opts).results, id);
+      return { status: res.status, score: res.score };
+    }
+    var order = { APPROVED: 1, CONDITIONAL: 2, WAITLIST: 3, HOLD: 4, REJECTED: 5, WITHDRAWN: 6 };
+    var options = levers.map(function (l) {
+      var o = run([l.patch], l.ter);
+      return { label: l.label, side: l.side, status: o.status, score: o.score, better: order[o.status] < order[r.status] || o.score > r.score, patch: l.patch, ter: l.ter };
+    });
+    var mine = levers.filter(function (l) { return l.side === 'applicant'; });
+    if (mine.length > 1) {
+      var all = run(mine.map(function (l) { return l.patch; }));
+      var merged = {};
+      mine.forEach(function (l) { Object.keys(l.patch).forEach(function (k) { merged[k] = k === 'clearedSignals' ? (merged[k] || []).concat(l.patch[k]) : l.patch[k]; }); });
+      options.push({ label: 'All of the applicant-side steps together', side: 'combined', status: all.status, score: all.score, better: order[all.status] < order[r.status] || all.score > r.score, patch: merged });
+    }
+    options.sort(function (x, y) { return order[x.status] - order[y.status] || y.score - x.score; });
+    return { current: { status: r.status, score: r.score }, options: options };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Portfolio view for the expansion team: opening calendar, training cohorts, this week's actions
+  // ---------------------------------------------------------------------------
+  function portfolio(result) {
+    var moving = result.results.filter(function (r) { return r.plan; });
+    var openings = moving.map(function (r) {
+      return { id: r.app.id, name: r.app.name, city: r.app.city, status: r.status, launchISO: r.plan.launchISO, launchDate: r.plan.launchDate, steps: r.plan.steps, language: r.plan.training.language };
+    }).sort(function (a, b) { return a.launchISO < b.launchISO ? -1 : 1; });
+    var cohorts = {};
+    moving.forEach(function (r) {
+      var tr = r.plan.steps.filter(function (s) { return /training/i.test(s.name); })[0];
+      if (!tr) return;
+      var d = new Date(tr.startISO);
+      var monthKey = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+      var key = r.plan.training.language + '|' + monthKey;
+      if (!cohorts[key]) cohorts[key] = { language: r.plan.training.language, monthKey: monthKey, month: ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()] + ' ' + d.getFullYear(), members: [], firstStart: tr.startISO };
+      cohorts[key].members.push({ id: r.app.id, name: r.app.name, city: r.app.city, track: r.plan.training.track });
+      if (tr.startISO < cohorts[key].firstStart) cohorts[key].firstStart = tr.startISO;
+    });
+    var actions = [];
+    result.results.forEach(function (r) {
+      if (r.plan) r.plan.nextSteps.forEach(function (s) { if (/3 days|7 days|Condition/.test(s.by)) actions.push({ id: r.app.id, name: r.app.name, by: s.by, text: s.text, kind: s.by === 'Condition' ? 'condition' : 'partner' }); });
+      else if (r.status === 'HOLD' && r.actions[0]) actions.push({ id: r.app.id, name: r.app.name, by: 'Ask now', text: r.actions[0], kind: 'question' });
+    });
+    return { openings: openings, cohorts: Object.keys(cohorts).sort().map(function (k) { return cohorts[k]; }).sort(function (a, b) { return a.monthKey < b.monthKey ? -1 : a.monthKey > b.monthKey ? 1 : a.language < b.language ? -1 : 1; }), actions: actions };
+  }
+
   var api = {
     CITIES: CITIES, ASSUMPTIONS: ASSUMPTIONS, STATUS: STATUS, DEFAULT_STORES: DEFAULT_STORES,
-    evaluate: evaluate, normaliseApplication: normaliseApplication, normaliseTerritory: normaliseTerritory, normaliseStore: normaliseStore,
+    evaluate: evaluate, pathToYes: pathToYes, portfolio: portfolio, normaliseApplication: normaliseApplication, normaliseTerritory: normaliseTerritory, normaliseStore: normaliseStore,
     helpers: { clean: clean, toNumber: toNumber, toLakh: toLakh, normCity: normCity, normPin: normPin, normFloor: normFloor, normSpace: normSpace, normLanguage: normLanguage, normPriority: normPriority, canonicalAppId: canonicalAppId, fmtL: fmtL, clone: clone, cityFromPin: cityFromPin }
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

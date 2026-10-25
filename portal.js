@@ -150,6 +150,8 @@
   try { var sl = localStorage.getItem('veloce.lang'); if (T[sl]) st.lang = sl; } catch (e) { /* ignore */ }
   var qsl = new URLSearchParams(location.search).get('lang');
   if (T[qsl]) st.lang = qsl;
+  var qst = new URLSearchParams(location.search).get('theme');
+  if (qst === 'light' || qst === 'dark') document.documentElement.setAttribute('data-theme', qst);
 
   function t(k, v) {
     var s = (T[st.lang] && T[st.lang][k] !== undefined) ? T[st.lang][k] : (T.en[k] !== undefined ? T.en[k] : k);
@@ -433,7 +435,11 @@
     qs.forEach(function (m) {
       var reply = a.messages.filter(function (x) { return x.replyTo === m.id; })[0];
       html += '<div class="pt-q' + (m.answered ? ' answered' : '') + '"><p class="pt-q-text">' + esc(Q.text(m.key, LANGS[st.lang], m.text)) + '</p>';
-      if (m.answered) html += '<p class="pt-q-ans">✓ ' + esc(t('answered')) + (reply && reply.text ? ': ' + esc(reply.text) : '') + '</p>';
+      if (m.answered) {
+        var qt = (Q.Q[m.key] || {}).type, shown = reply && reply.text ? reply.text : '';
+        if (qt === 'yesno') shown = /Yes$/.test(shown) ? t('yes') : t('no'); // the stored summary is for the team; show the applicant their own language
+        html += '<p class="pt-q-ans">✓ ' + esc(t('answered')) + (shown ? ': ' + esc(shown) : '') + '</p>';
+      }
       else if (!a.withdrawn) html += answerWidget(m, a);
       html += '</div>';
     });
@@ -466,7 +472,8 @@
           var yes = yn.getAttribute('data-yn') === 'yes';
           var note = key === 'loan' ? (yes ? 'Loan sanctioned.' : 'Loan not yet sanctioned.') : key === 'commitment' ? (yes ? 'Will run full-time.' : 'May not run full-time.') : (yes ? 'Yes.' : 'Not yet.');
           var patch = yes ? { clearedSignals: q.signals || [], noteAppend: note } : { noteAppend: note };
-          S.answer(a.id, msgId, patch, yes ? 'Yes' : 'Not yet');
+          var topic = key === 'loan' ? 'Loan sanctioned: ' : key === 'commitment' ? 'Will run full-time: ' : '';
+          S.answer(a.id, msgId, patch, topic + (yes ? 'Yes' : 'Not yet'));
           return;
         }
         if (!e.target.closest('[data-send]')) return;
@@ -552,4 +559,15 @@
   });
 
   setLang(st.lang);
+
+  // Demo links: ?pin=560034 runs the pin check; &prefill opens a filled-in application at step 2
+  var qsp = new URLSearchParams(location.search);
+  if (/^\d{6}$/.test(qsp.get('pin') || '')) {
+    checkPin(qsp.get('pin'));
+    if (qsp.has('prefill')) {
+      st.f = { name: 'Kavya Rao', experience: '4', business: 'Runs a gift and stationery shop', investment: '28', space: 'Rented', floor: 'Upper', size: '500', launch: 4, notes: '', language: LANGS[st.lang] };
+      st.step = +qsp.get('prefill') || 2;
+      go('#/apply');
+    }
+  }
 })();

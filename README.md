@@ -1,53 +1,46 @@
-# FranchiseFlow
+# FranchiseFlow · Veloce
 
-**Case 1 – Franchise Partner Acquisition, Geo-Selection & Onboarding Engine** (AI x Ops Hackathon)
+**Case 1 – Franchise Partner Acquisition, Geo-Selection & Onboarding Engine** (AI x Ops Hackathon) · Team *Roadies – Hum bhi bana lenge*
 
-Upload the Applications + Territories Excel. For every applicant FranchiseFlow decides what should happen and why, allocates territory slots (never two stores in one pin code), and builds an onboarding plan, training plan and a message in the partner's language for everyone moving forward. Then talk to it: ask why, or give it new information, and it re-runs every decision and shows what changed.
+Two connected apps for a fictional retail brand, **Veloce**:
 
-No login, no API keys, no rate limits. It runs entirely in the browser and is deterministic: the same file always gives the same answer.
+| App | Who uses it | Link |
+|---|---|---|
+| **Expansion dashboard** (`index.html`) | Veloce's expansion team | https://jeet-doshi.github.io/franchiseflow/ |
+| **Partner Portal** (`apply.html`) | People who want to open a Veloce store | https://jeet-doshi.github.io/franchiseflow/apply.html |
 
-## What's inside
-| View | What it shows |
-|---|---|
-| **Overview** | Funnel by outcome, slots filled, first openings, and *Needs your attention* (close calls, contradictory forms, questions to ask) |
-| **Decisions** | Board by outcome (Approved · Conditional · Waitlisted · On hold · Not proceeding) or table; search and city filter |
-| **Map** | Karnataka with each target city; click a city to see every pin as a tile: our store, approved, wanted, free |
-| **Onboarding** | Opening calendar (phase Gantt), training cohorts by language and month, actions due this week |
-| **Partner passport** | Decision and reasons, score breakdown, **Path to yes**, live what-if, onboarding journey, training plan, payback, **message in Kannada/Hindi/English**, manager override |
-| **Assistant** | Why · next steps · compare · path to yes · draft message · cohorts · new facts · new applicants · overrides · what-if · undo |
+No login, no API keys. Decisions are rules you can read: the same data always gives the same answer.
+
+## Partner Portal (English · हिन्दी · ಕನ್ನಡ)
+1. **Pin code first.** If Veloce already has a store there (or a partner was shortlisted), it says so and offers the nearest open pins instead of a dead end.
+2. **3-step application** with a **live shortlist chance** (Strong / Good / Needs work / Unlikely), a score breakdown and "how to improve" tips, each tested by re-running the engine.
+3. **Track**: status timeline, the decision message in the applicant's language, and **questions from the team** with structured answers (pin, funds, shop, timeline, loan, commitment). Answers update the application, and the dashboard re-decides.
+
+## Expansion dashboard
+- **Upload the Excel** (Applications + Territories; existing stores built in), or load sample data. Portal applications merge in live, tagged *Portal*.
+- **Overview** (funnel, attention queue incl. new portal applications and replies) · **Decisions** board · **Map** (every pin code) · **Onboarding** (opening calendar, training cohorts, due this week) · **Rubric** (edit weights and thresholds, preview who moves, apply, undo).
+- **Partner passport** for every applicant: decision and reasons, path to yes, what-if, onboarding plan, message in their language, manager override, and **Conversation** for portal applicants.
+- **Assistant**: plain-English questions and updates; every change re-runs all decisions and shows the knock-on effects.
+
+## Data
+- **Google Sheet as the database** (`backend/Code.gs`, set up per `backend/SETUP.md`, URL in `config.js`). Every action is one appended row, one tab per workspace, so concurrent writes never overwrite each other.
+- **Workspaces** keep testers apart: each dashboard gets its own code (shown with a QR in *Partner portal*). The portal opened without a code uses the shared `public` workspace.
+- **Fallback**: if the Sheet can't be reached, both apps keep working in the browser and sync later. The Excel path never depends on the Sheet.
 
 ## Decision logic
 | Step | What happens |
 |---|---|
-| Data checks | City vs pin prefix, missing pin/investment, space vs size/notes contradictions, duplicates, text in number columns |
-| Hard rules | One store per pin (existing stores and applicants). Investment < 70% of setup cost → reject. Fit < 40 → reject |
-| Fit score /100 | Funds 25 · Space 25 · Experience 20 · Business 10 · Timeline 10 · Territory priority 10 · ± adjustments (cannibalisation, contradictions, signals in notes) |
+| Hard rules | One store per pin (existing stores and applicants). Investment below the rubric's % of setup cost → reject. Fit below the minimum → reject |
+| Fit score /100 | Funds · Shop readiness · Retail experience · Business background · Timeline · Territory priority, weighted by the **Rubric** (default 25/25/20/10/10/10) ± adjustments (cannibalisation, contradictions, signals in notes) |
 | Allocation | Per territory, best score first, one pin each. Applicants whose pin is unusable compete at a *relocation score* and get a free pin nobody else asked for |
 | Confidence | Close calls, contradictory forms and borderline rejects → *Review*; overrides → *Manual* |
-| Onboarding | Agreement/KYC → site audit → fit-out (by tier) + hiring → training in the partner's language (fast/full track, shadowing at the nearest store) → soft launch → 30/60/90-day reviews |
-
-All assumptions live in `ASSUMPTIONS` at the top of `engine.js`.
-
-## Saving work
-- **Autosave**: every change is saved in this browser; reopening the link offers *Pick up where you left off*.
-- **Save session**: downloads a `.json` (data, updates, overrides, change log) you can reopen with *Upload* or hand to a colleague.
-- Nothing leaves the device, so each tester gets a clean, private session with no login or quota.
-
-## From MVP to company rollout
-| Layer | MVP (this repo) | Company version |
-|---|---|---|
-| Applications in | Excel upload, Add Applicant form, chat | Web/WhatsApp application form writes to the database |
-| Storage | Browser autosave + session file | Postgres (e.g. Supabase): applicants, territories, stores, decisions, overrides, change log |
-| Users | Anyone with the link | Logins by role: expansion manager, area manager, training team, head of expansion |
-| Decisions | `engine.js` in the browser | The same `engine.js` server-side (pure functions, no changes), re-run on every change; decisions versioned |
-| Audit | Change log in the session | The change log and overrides become an audit table |
-| Messages | Draft + copy | Sent via WhatsApp Business API, with delivery status |
+| Onboarding | Agreement/KYC → site audit → fit-out + hiring → training in the partner's language at the nearest store → soft launch → 30/60/90-day reviews |
 
 ## Files
-`index.html` · `styles.css` · `app.js` (UI) · `engine.js` (decisions, path to yes, portfolio) · `loader.js` (Excel reader) · `chat.js` (assistant) · `messages.js` (partner messages) · `sample/` (test file + blank template) · `tools/` (`make_sample.py`, `test.js`)
+`index.html` `app.js` (dashboard) · `apply.html` `portal.js` `portal.css` (portal) · `styles.css` · `engine.js` (decisions, rubric, path to yes) · `loader.js` (Excel) · `chat.js` (assistant) · `messages.js` (partner messages) · `questions.js` (preset questions) · `store.js` (shared data layer) · `config.js` · `backend/` · `sample/` · `tools/`
 
 ## Run locally
 ```bash
 python -m http.server 8765
 ```
-Then open http://localhost:8765. Any static host works (GitHub Pages, Netlify, Vercel). Smoke test: `node tools/test.js`.
+Open http://localhost:8765 (dashboard) and http://localhost:8765/apply.html (portal). Smoke test: `node tools/test.js`. Rollback point: tag `v1-submitted`.

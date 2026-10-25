@@ -44,7 +44,10 @@
     floorFootfall: { 'Ground': 1, 'Mall unit': 0.9, 'Upper': 0.55, 'Not known': 0.8 },
     // "Same catchment" proxy: pin codes in the same city within this numeric distance
     catchmentPinDistance: 2,
+    cannibalisationPenalty: 6,
     minScoreToProceed: 40,
+    // Rubric weights: how many of the 100 points each factor is worth (normalised to 100 if they don't add up)
+    weights: { funds: 25, space: 25, experience: 20, business: 10, timeline: 10, territory: 10 },
     // Weeks for each onboarding step
     weeks: { siteHunt: 6, agreement: 2, siteApproval: 1, fitOut: { 1: 7, 2: 6, 3: 5 }, preLaunch: 1 }
   };
@@ -596,8 +599,18 @@
         if (s.key === 'uncertain') r.conditions.push('Commitment call with the expansion manager and a refundable token deposit.');
         if (s.key !== 'withdraw' && s.key !== 'nospace_note') r.reasons.push({ t: s.penalty ? '-' : s.bonus ? '+' : '~', text: s.text + '.' });
       });
-      if (r.cannibalisation) adj -= 6;
+      if (r.cannibalisation) adj -= A.cannibalisationPenalty;
       adj -= Math.min(6, r.flags.length * 2);
+      // Rescale each factor from its natural scale to the team's rubric weights (out of 100)
+      var WK = { 'Funds': 'funds', 'Space readiness': 'space', 'Retail experience': 'experience', 'Business background': 'business', 'Timeline realism': 'timeline', 'Territory priority': 'territory' };
+      var wsum = 0; Object.keys(A.weights).forEach(function (k) { wsum += Math.max(0, +A.weights[k] || 0); });
+      r.breakdown.forEach(function (b) {
+        var key = WK[b.k];
+        if (!key || !b.max) return;
+        var w = wsum ? Math.max(0, +A.weights[key] || 0) * 100 / wsum : 0;
+        b.pts = round(b.pts / b.max * w);
+        b.max = round(w);
+      });
       if (adj) r.breakdown.push({ k: 'Adjustments', pts: adj, max: 0, note: [r.cannibalisation ? 'catchment overlap' : '', r.flags.length ? r.flags.length + ' data issue(s)' : '', r.signals.filter(function (s) { return s.penalty || s.bonus; }).map(function (s) { return s.key; }).join(', ')].filter(Boolean).join('; ') });
 
       var total = 0; r.breakdown.forEach(function (b) { total += b.pts; });
@@ -915,7 +928,29 @@
     return { openings: openings, cohorts: Object.keys(cohorts).sort().map(function (k) { return cohorts[k]; }).sort(function (a, b) { return a.monthKey < b.monthKey ? -1 : a.monthKey > b.monthKey ? 1 : a.language < b.language ? -1 : 1; }), actions: actions };
   }
 
+  // ---------------------------------------------------------------------------
+  // Rubric: the team edits these from the dashboard; the portal uses the same values
+  // ---------------------------------------------------------------------------
+  var DEFAULT_RUBRIC = JSON.parse(JSON.stringify({
+    weights: ASSUMPTIONS.weights, setupCost: ASSUMPTIONS.setupCost, rejectBelowRatio: ASSUMPTIONS.rejectBelowRatio,
+    minScoreToProceed: ASSUMPTIONS.minScoreToProceed, minSpaceSqft: ASSUMPTIONS.minSpaceSqft, idealSpaceSqft: ASSUMPTIONS.idealSpaceSqft,
+    catchmentPinDistance: ASSUMPTIONS.catchmentPinDistance, cannibalisationPenalty: ASSUMPTIONS.cannibalisationPenalty
+  }));
+  function getRubric() {
+    var r = {};
+    Object.keys(DEFAULT_RUBRIC).forEach(function (k) { r[k] = JSON.parse(JSON.stringify(ASSUMPTIONS[k])); });
+    return r;
+  }
+  function setRubric(rb) {
+    rb = rb || DEFAULT_RUBRIC;
+    Object.keys(DEFAULT_RUBRIC).forEach(function (k) {
+      if (rb[k] === undefined || rb[k] === null) return;
+      ASSUMPTIONS[k] = JSON.parse(JSON.stringify(rb[k]));
+    });
+  }
+
   var api = {
+    getRubric: getRubric, setRubric: setRubric, DEFAULT_RUBRIC: DEFAULT_RUBRIC,
     CITIES: CITIES, ASSUMPTIONS: ASSUMPTIONS, STATUS: STATUS, DEFAULT_STORES: DEFAULT_STORES,
     evaluate: evaluate, pathToYes: pathToYes, portfolio: portfolio, normaliseApplication: normaliseApplication, normaliseTerritory: normaliseTerritory, normaliseStore: normaliseStore,
     helpers: { clean: clean, toNumber: toNumber, toLakh: toLakh, normCity: normCity, normPin: normPin, normFloor: normFloor, normSpace: normSpace, normLanguage: normLanguage, normPriority: normPriority, canonicalAppId: canonicalAppId, fmtL: fmtL, clone: clone, cityFromPin: cityFromPin }

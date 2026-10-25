@@ -3,27 +3,30 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>FranchiseFlow</title>
+<title>Veloce Expansion · FranchiseFlow</title>
 <meta name="description" content="Franchise partner selection, geo-allocation and onboarding engine. Upload applications and territories; get explainable decisions, onboarding plans and partner messages, and ask follow-up questions.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Sans+Kannada:wght@400;600&family=Noto+Sans+Devanagari:wght@400;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="styles.css?v=20261026a">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%232f5bff'/%3E%3Cstop offset='1' stop-color='%237c3aed'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='9' fill='url(%23g)'/%3E%3Cpath d='M10 23V9h11M10 16h8' stroke='white' stroke-width='3.2' fill='none' stroke-linecap='round'/%3E%3Ccircle cx='23.5' cy='22' r='3' fill='%23ffd166'/%3E%3C/svg%3E">
 </head>
 <body>
 <header class="topbar">
   <a class="brand" href="#" id="brandHome" aria-label="FranchiseFlow home">
     <span class="logo"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M10 23V9h11M10 16h8" stroke="white" stroke-width="3.2" fill="none" stroke-linecap="round"/><circle cx="23.5" cy="22" r="3" fill="#ffd166"/></svg></span>
-    <span class="brand-text"><b>FranchiseFlow</b><small>Partner selection &amp; onboarding engine</small></span>
+    <span class="brand-text"><b>FranchiseFlow</b><small>Veloce expansion team</small></span>
   </a>
   <nav class="tabs hidden" id="tabs" aria-label="Views">
     <button data-view="overview" class="active"><i data-ic="grid"></i><span>Overview</span></button>
     <button data-view="decisions"><i data-ic="list"></i><span>Decisions</span></button>
     <button data-view="map"><i data-ic="map"></i><span>Map</span></button>
     <button data-view="onboarding"><i data-ic="calendar"></i><span>Onboarding</span></button>
+    <button data-view="rubric"><i data-ic="target"></i><span>Rubric</span></button>
   </nav>
   <div class="top-actions">
+    <span class="sync-badge" id="syncBadge"></span>
+    <button class="btn ghost" id="btnPortal"><i data-ic="globe"></i><span>Partner portal</span></button>
     <button class="btn ghost" id="btnGuide"><i data-ic="info"></i><span>How to test</span></button>
     <button class="btn ghost hidden" id="btnAdd"><i data-ic="plus"></i><span>Applicant</span></button>
     <button class="btn ghost hidden" id="btnSave" title="Download this session (data, updates, overrides) to reopen later or hand to a colleague"><i data-ic="copy"></i><span>Save session</span></button>
@@ -38,6 +41,7 @@
     <!-- ============ Landing ============ -->
     <section id="landing" class="landing">
       <div class="restore hidden" id="restore"></div>
+      <div class="portal-waiting hidden" id="portalWaiting"></div>
       <div class="hero">
         <div class="hero-copy">
           <span class="eyebrow"><i data-ic="sparkle"></i> AI x Ops Hackathon · Case 1</span>
@@ -47,6 +51,7 @@
             <button class="btn primary xl" id="btnSample"><i data-ic="play"></i>Try with sample data</button>
             <label class="btn xl" for="fileInput"><i data-ic="upload"></i>Upload your Excel</label>
           </div>
+          <a class="door" href="apply.html" id="doorPortal"><span class="door-ic"><i data-ic="globe"></i></span><span><b>Want to open a Veloce store?</b><small>Apply in the Partner Portal: check your pin code and see your chances live, in English, हिन्दी or ಕನ್ನಡ</small></span><i data-ic="play"></i></a>
           <div class="trust">
             <span><i data-ic="lock"></i>No login</span>
             <span><i data-ic="bolt"></i>Runs in your browser</span>
@@ -150,6 +155,14 @@
       </div>
     </section>
 
+    <!-- ============ Rubric ============ -->
+    <section id="view-rubric" class="view hidden">
+      <div class="page-head">
+        <div><h1>Rubric</h1><p class="sub">How Veloce scores applicants. Change a weight or threshold, preview exactly who moves, then apply. The Partner Portal uses the same rubric for applicants’ live chances.</p></div>
+      </div>
+      <div id="rubricBody"></div>
+    </section>
+
     <!-- ============ Onboarding ============ -->
     <section id="view-onboarding" class="view hidden">
       <div class="page-head">
@@ -200,11 +213,16 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="engine.js"></script>
-<script src="loader.js"></script>
-<script src="messages.js"></script>
-<script src="chat.js"></script>
-<script src="sample-data.js"></script>
-<script src="app.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>window.FRANCHISEFLOW_DASHBOARD = true;</script>
+<script src="config.js?v=20261026a"></script>
+<script src="engine.js?v=20261026a"></script>
+<script src="loader.js?v=20261026a"></script>
+<script src="messages.js?v=20261026a"></script>
+<script src="questions.js?v=20261026a"></script>
+<script src="store.js?v=20261026a"></script>
+<script src="chat.js?v=20261026a"></script>
+<script src="sample-data.js?v=20261026a"></script>
+<script src="app.js?v=20261026a"></script>
 </body>
 </html>

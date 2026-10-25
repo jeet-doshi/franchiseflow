@@ -98,7 +98,9 @@
 
   // One way in for a fresh upload, a restored autosave and a loaded session file
   function openSession(s) {
-    state.data = s.data; state.report = s.report || { sheetsUsed: {}, warnings: [] }; state.fileName = s.fileName || 'Session';
+    E.setRubric(s.rubric || E.DEFAULT_RUBRIC);
+    state.rubricDraft = null;
+    state.data = mergePortal(s.data); state.report = s.report || { sheetsUsed: {}, warnings: [] }; state.fileName = s.fileName || 'Session';
     state.history = []; state.today = new Date(); state.dueDone = s.dueDone || {}; state.msgLang = {};
     state.log = (s.log || []).map(function (l) { return { when: new Date(l.when), text: l.text, kind: l.kind, html: l.html }; });
     state.result = E.evaluate(state.data, { today: state.today });
@@ -110,7 +112,9 @@
     if (state.log.length) bot('<p>Restored your session with <b>' + state.log.length + ' update(s)</b> - decisions re-run as of today.</p>');
     setChat(window.innerWidth > 960);
     if (window.innerWidth <= 960) $('chatFab').classList.remove('hidden');
+    state.portalSig = portalSig();
     persist();
+    publish();
   }
 
   // ------------------------------------------------------------------ persistence (this browser only)
@@ -118,7 +122,7 @@
   // a shared team database is the production step (see README).
   var SAVE_KEY = 'franchiseflow.session.v1';
   function snapshot() {
-    return { app: 'FranchiseFlow', v: 1, savedAt: new Date().toISOString(), fileName: state.fileName, report: state.report, data: state.data, dueDone: state.dueDone,
+    return { app: 'FranchiseFlow', v: 1, savedAt: new Date().toISOString(), fileName: state.fileName, report: state.report, data: state.data, dueDone: state.dueDone, rubric: E.getRubric(),
       log: state.log.map(function (l) { return { when: l.when.toISOString(), text: l.text, kind: l.kind, html: l.html }; }) };
   }
   function persist() {
@@ -171,7 +175,7 @@
   // ------------------------------------------------------------------ commit (every change goes through here)
   function commit(out, label, kind) {
     var before = state.result;
-    state.history.push({ data: state.data, result: state.result });
+    state.history.push({ data: state.data, result: state.result, rubric: out.rubricBefore || E.getRubric() });
     state.data = out.data;
     state.result = out.result;
     var changed = [];
@@ -183,26 +187,211 @@
     renderAll(changed);
     if (state.pp) openPassport(state.pp, state.ppTab, true);
     setChips();
+    state.portalSig = portalSig();
     persist();
+    publish();
     return changed;
   }
   function undo() {
     if (!state.history.length) return false;
     var prev = state.history.pop();
+    if (prev.rubric) E.setRubric(prev.rubric);
+    state.rubricDraft = null;
     state.data = prev.data; state.result = prev.result;
     state.log.pop();
     persist();
+    publish();
     renderAll();
     if (state.pp) openPassport(state.pp, state.ppTab, true);
     setChips();
     return true;
   }
 
+  // ------------------------------------------------------------------ Partner Portal link (shared Veloce store)
+  var S = window.VeloceStore, QQ = window.VeloceQuestions;
+  state.includePortal = true;
+  function portalApps() {
+    if (!S || !state.includePortal) return [];
+    return S.apps().map(function (a) { var c = Object.assign({}, a); delete c.messages; delete c.updatedAt; return c; });
+  }
+  function portalSig() { return state.includePortal + JSON.stringify(portalApps()); }
+  function mergePortal(data) {
+    var d = H.clone(data);
+    d.applications = d.applications.filter(function (a) { return a.source !== 'portal'; }).concat(portalApps());
+    return d;
+  }
+  function slim(r) {
+    var p = r.plan;
+    return { status: r.status, statusLabel: r.statusLabel, score: r.score, headline: r.headline, conditions: r.conditions, proposedPin: r.proposedPin || null,
+      blocking: r.blocking.map(function (b) { return { code: b.code, text: b.text }; }), suggestedPins: (r.suggestedPins || []).slice(0, 4), actions: r.actions.slice(0, 3),
+      app: { id: r.app.id, name: r.app.name, city: r.app.city, pin: r.app.pin, language: r.app.language, investment: r.app.investment, override: r.app.override || null },
+      plan: p ? { launchDate: p.launchDate, training: { weeks: p.training.weeks, shadowStore: p.training.shadowStore, language: p.training.language } } : null };
+  }
+  /** Tell the portal what it needs: open areas, taken pins, the rubric, and each portal applicant's decision */
+  function publish() {
+    if (!S || !state.result) return;
+    var taken = {}, dec = {};
+    state.result.results.forEach(function (r) {
+      if (r.status === 'APPROVED' || r.status === 'CONDITIONAL') taken[r.proposedPin || r.app.pin] = true;
+      if (r.app.source === 'portal') dec[r.app.id] = slim(r);
+    });
+    S.publish({ territories: state.data.territories, stores: state.data.stores, takenPins: taken, rubric: E.getRubric() }, dec);
+  }
+  function renderSync() {
+    if (!S) return;
+    var st = S.status(), el = $('syncBadge');
+    if (!el) return;
+    el.className = 'sync-badge ' + st.mode;
+    el.textContent = { live: 'Live', local: 'This device', offline: 'Offline · will sync', connecting: 'Connecting…' }[st.mode];
+    el.title = (st.live ? 'Google Sheets database' : 'Saved in this browser') + ' · workspace ' + st.ws;
+  }
+  /** Portal changed (new application, a reply, a withdrawal): re-run every decision and log it */
+  function syncPortal(why) {
+    renderSync();
+    if (why === 'mode' || !state.data) { if (!state.data) showPortalWaiting(); return; }
+    var sig = portalSig();
+    if (sig === state.portalSig) { refreshConversation(); if (state.view === 'overview') renderOverview(), hydrate(); else if (state.view === 'decisions') renderDecisions(), hydrate(); return; }
+    var before = state.data.applications.filter(function (a) { return a.source === 'portal'; });
+    var now = portalApps(), labels = [], focus = [];
+    now.forEach(function (a) {
+      var b = before.filter(function (x) { return x.id === a.id; })[0];
+      if (!b) { labels.push('New application from the Partner Portal: ' + a.id + ' ' + (a.name || '')); focus.push(a.id); return; }
+      if (JSON.stringify(b) === JSON.stringify(a)) return;
+      if (a.withdrawn && !b.withdrawn) labels.push(a.id + ' withdrew in the portal');
+      else {
+        var full = S.app(a.id), last = full ? full.messages.filter(function (m) { return m.from === 'applicant'; }).pop() : null;
+        labels.push(a.id + ' replied in the portal' + (last && last.text ? ': ' + last.text : ''));
+      }
+      focus.push(a.id);
+    });
+    if (!labels.length) labels.push(state.includePortal ? 'Portal applications refreshed' : 'Portal applications hidden');
+    var d = mergePortal(state.data);
+    var out = C.commitChange(state, d, '<p><b>' + esc(labels.join(' · ')) + '</b></p>', focus.length === 1 ? focus : []);
+    commit(out, labels.join(' · '), 'portal');
+    bot(out.html);
+    toast(labels[0]);
+  }
+  function showPortalWaiting() {
+    var el = $('portalWaiting');
+    if (!el || !S) return;
+    var n = S.apps().length;
+    el.classList.toggle('hidden', !n);
+    el.innerHTML = n ? icon('users').replace('<svg', '<svg style="width:18px;height:18px"') + '<span><b>' + n + ' application(s)</b> from the Partner Portal are waiting in workspace ' + esc(S.workspace()) + '. Load the sample data or your Excel to see them alongside.</span>' : '';
+  }
+  function unreadCount(id) { var a = S && S.app(id); return a ? a.messages.filter(function (m) { return m.unread; }).length : 0; }
+  function refreshConversation() { if (state.pp && state.ppTab === 'chat') openPassport(state.pp, 'chat', true); }
+
+  function portalModal() {
+    var url = S ? S.portalUrl() : 'apply.html', st = S ? S.status() : { ws: 'public', live: false };
+    modal('<h2>Veloce Partner Portal</h2><p class="muted">Where applicants apply, see their chances, and answer your team’s questions, in English, Hindi or Kannada. Applications land in this dashboard automatically.</p>' +
+      '<div class="portal-share"><div id="qr" class="qr"></div><div><h3 style="margin-top:0">Open it on any phone or laptop</h3>' +
+      '<div class="copyrow"><input id="portalUrl" readonly value="' + esc(url) + '"><button class="btn sm" id="copyPortal">' + ic('copy') + 'Copy</button></div>' +
+      '<div class="try" style="margin-top:10px"><a class="btn primary sm" href="' + esc(url) + '" target="_blank" rel="noopener">' + ic('play') + 'Open portal in a new tab</a></div>' +
+      '<p class="muted small" style="margin-top:12px">Workspace <b>' + esc(st.ws) + '</b> · ' + (st.live ? 'synced through the Google Sheets database, so it works across devices' : 'kept in this browser') + '. Each dashboard has its own workspace, so testers never see each other’s applicants.</p>' +
+      '<p class="small"><a href="index.html?ws=public">Switch to the public workspace</a> · <a href="#" id="newWs">Start a new private workspace</a></p></div></div>');
+    if (window.QRCode) { try { new QRCode($('qr'), { text: url, width: 168, height: 168, colorDark: '#0e1a33', colorLight: '#ffffff' }); } catch (e) { $('qr').classList.add('hidden'); } }
+    else $('qr').classList.add('hidden');
+    $('copyPortal').addEventListener('click', function () { $('portalUrl').select(); if (navigator.clipboard) navigator.clipboard.writeText(url); toast('Portal link copied'); });
+    $('newWs').addEventListener('click', function (e) { e.preventDefault(); try { localStorage.removeItem('veloce.ws'); localStorage.removeItem(SAVE_KEY); } catch (x) { /* ignore */ } location.href = 'index.html'; });
+  }
+
+  // ---------------- conversation tab (portal applicants)
+  function chatTab(r) {
+    var a = S && S.app(r.app.id);
+    if (!a) return '<div class="pp-sec"><p class="muted">This applicant came from the Excel file, so there is no portal conversation. Use the assistant or an override instead.</p></div>';
+    if (a.messages.some(function (m) { return m.unread; })) setTimeout(function () { S.markRead(a.id); }, 600);
+    var thread = a.messages.map(function (m) {
+      var when = new Date(m.at).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+      if (m.from === 'system') return '<div class="cv-sys">Applied through the Partner Portal · ' + esc(when) + '</div>';
+      if (m.from === 'team') return '<div class="cv-row team"><div class="cv-b"><small>Veloce team · ' + esc(when) + (m.answered ? ' · answered' : ' · waiting') + '</small>' + esc(QQ.text(m.key, 'English', m.text)) + '</div></div>';
+      return '<div class="cv-row app"><div class="cv-b"><small>' + esc(a.name || a.id) + ' · ' + esc(when) + (m.unread ? ' · new' : '') + '</small>' + esc(m.text || '(no text)') + '</div></div>';
+    }).join('');
+    var sug = QQ.suggest(r);
+    var html = '<div class="pp-sec"><h4>' + ic('chat') + 'Conversation with ' + esc((a.name || '').split(' ')[0] || a.id) + '</h4><div class="cv">' + thread + '</div></div>';
+    html += '<div class="pp-sec"><h4>' + ic('send') + 'Ask a question</h4><p class="muted small" style="margin-bottom:10px">Shown to the applicant in <b>' + esc(a.language || 'English') + '</b>. Their answer updates the application and every decision re-runs.</p>';
+    if (sug.length) html += '<p class="small" style="font-weight:700;margin-bottom:6px">Suggested from the decision</p><div class="try" style="margin-bottom:12px">' + sug.map(function (k) { return '<button data-askq="' + k + '">' + esc(QQ.text(k, 'English')) + '</button>'; }).join('') + '</div>';
+    html += '<p class="small" style="font-weight:700;margin-bottom:6px">All preset questions</p><div class="try" style="margin-bottom:12px">' + QQ.ORDER.filter(function (k) { return sug.indexOf(k) < 0; }).map(function (k) { return '<button data-askq="' + k + '">' + esc(QQ.text(k, 'English')) + '</button>'; }).join('') + '</div>';
+    html += '<div class="ov-form"><textarea id="cvCustom" placeholder="Or write your own question (sent as typed)"></textarea><div><button class="btn primary sm" id="cvSend">' + ic('send') + 'Send question</button></div></div></div>';
+    return html;
+  }
+
+  // ---------------- rubric page
+  var RUBRIC_LABELS = { funds: 'Funds vs setup cost', space: 'Shop readiness', experience: 'Retail experience', business: 'Business background', timeline: 'Realistic timeline', territory: 'Territory priority' };
+  function draftRubric() { return state.rubricDraft || E.getRubric(); }
+  function evaluateWith(rb) {
+    var cur = E.getRubric();
+    E.setRubric(rb);
+    var res = E.evaluate(state.data, { today: state.today });
+    E.setRubric(cur);
+    return res;
+  }
+  function rubricChanges(a, b) {
+    var out = [];
+    Object.keys(a.weights).forEach(function (k) { if (+a.weights[k] !== +b.weights[k]) out.push(RUBRIC_LABELS[k] + ' weight ' + a.weights[k] + ' → ' + b.weights[k]); });
+    [1, 2, 3].forEach(function (t) { if (+a.setupCost[t] !== +b.setupCost[t]) out.push('Tier ' + t + ' setup cost ₹' + a.setupCost[t] + ' L → ₹' + b.setupCost[t] + ' L'); });
+    if (+a.rejectBelowRatio !== +b.rejectBelowRatio) out.push('Reject below ' + Math.round(a.rejectBelowRatio * 100) + '% → ' + Math.round(b.rejectBelowRatio * 100) + '% of setup cost');
+    if (+a.minScoreToProceed !== +b.minScoreToProceed) out.push('Minimum fit ' + a.minScoreToProceed + ' → ' + b.minScoreToProceed);
+    if (+a.minSpaceSqft !== +b.minSpaceSqft) out.push('Minimum shop ' + a.minSpaceSqft + ' → ' + b.minSpaceSqft + ' sq ft');
+    if (+a.idealSpaceSqft[0] !== +b.idealSpaceSqft[0] || +a.idealSpaceSqft[1] !== +b.idealSpaceSqft[1]) out.push('Ideal shop ' + a.idealSpaceSqft.join('–') + ' → ' + b.idealSpaceSqft.join('–') + ' sq ft');
+    if (+a.catchmentPinDistance !== +b.catchmentPinDistance) out.push('Catchment ±' + a.catchmentPinDistance + ' → ±' + b.catchmentPinDistance + ' pins');
+    if (+a.cannibalisationPenalty !== +b.cannibalisationPenalty) out.push('Cannibalisation penalty ' + a.cannibalisationPenalty + ' → ' + b.cannibalisationPenalty);
+    return out;
+  }
+  function renderRubric() {
+    var rb = draftRubric(), cur = E.getRubric();
+    var wsum = 0; Object.keys(rb.weights).forEach(function (k) { wsum += +rb.weights[k] || 0; });
+    var html = '<div class="rb-grid"><div class="rb-left"><div class="card"><div class="card-head"><h3>Scoring weights</h3><span class="muted small">Total ' + wsum + (wsum !== 100 ? ' · scaled to 100' : '') + '</span></div>' +
+      Object.keys(RUBRIC_LABELS).map(function (k) {
+        var w = +rb.weights[k] || 0, pct = wsum ? Math.round(w * 100 / wsum) : 0;
+        return '<div class="rb-row"><label>' + esc(RUBRIC_LABELS[k]) + '</label><input type="range" min="0" max="50" step="1" data-rb="weights.' + k + '" value="' + w + '"><input type="number" min="0" max="50" data-rb="weights.' + k + '" value="' + w + '"><span class="rb-pct">' + pct + '%</span></div>';
+      }).join('') + '<p class="muted small" style="margin-top:8px">Each factor’s points out of 100. They are scaled to add up to 100 automatically.</p></div>' +
+      '<div class="card"><div class="card-head"><h3>Thresholds &amp; hard rules</h3></div><div class="rb-fields">' +
+      num('Setup cost · Tier 1 (₹ lakh)', 'setupCost.1', rb.setupCost[1], 5, 100, 1) + num('Setup cost · Tier 2 (₹ lakh)', 'setupCost.2', rb.setupCost[2], 5, 100, 1) + num('Setup cost · Tier 3 (₹ lakh)', 'setupCost.3', rb.setupCost[3], 5, 100, 1) +
+      num('Reject if funds below (% of setup cost)', 'rejectBelowPct', Math.round(rb.rejectBelowRatio * 100), 0, 100, 5) + num('Minimum fit score to proceed', 'minScoreToProceed', rb.minScoreToProceed, 0, 90, 1) +
+      num('Minimum shop size (sq ft)', 'minSpaceSqft', rb.minSpaceSqft, 0, 2000, 10) + num('Ideal shop from (sq ft)', 'idealSpaceSqft.0', rb.idealSpaceSqft[0], 0, 3000, 10) + num('Ideal shop up to (sq ft)', 'idealSpaceSqft.1', rb.idealSpaceSqft[1], 0, 5000, 50) +
+      num('Catchment: neighbouring pins within ±', 'catchmentPinDistance', rb.catchmentPinDistance, 0, 10, 1) + num('Cannibalisation penalty (points)', 'cannibalisationPenalty', rb.cannibalisationPenalty, 0, 30, 1) +
+      '</div><p class="muted small" style="margin-top:8px">Always on, whatever the rubric says: never two stores in one pin code.</p></div></div>';
+    // impact preview
+    var changes = rubricChanges(cur, rb);
+    html += '<div class="rb-right"><div class="card rb-impact"><div class="card-head"><h3>Impact preview</h3><span class="muted small">' + (changes.length ? changes.length + ' change(s)' : 'No changes yet') + '</span></div>';
+    if (changes.length) {
+      var after = evaluateWith(rb), c0 = counts(), c1 = {};
+      after.results.forEach(function (r) { c1[r.status] = (c1[r.status] || 0) + 1; });
+      html += '<ul class="rb-changes">' + changes.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul><table class="rb-table"><tr><th>Outcome</th><th>Now</th><th>With draft</th></tr>' +
+        ['APPROVED', 'CONDITIONAL', 'WAITLIST', 'HOLD', 'REJECTED'].map(function (s) { var d = (c1[s] || 0) - (c0[s] || 0); return '<tr><td>' + chip(s) + '</td><td>' + (c0[s] || 0) + '</td><td><b>' + (c1[s] || 0) + '</b>' + (d ? ' <span class="' + (d > 0 ? 'up' : 'down') + '">' + (d > 0 ? '+' : '') + d + '</span>' : '') + '</td></tr>'; }).join('') + '</table>';
+      var moved = C.diff(state.result, after).filter(function (x) { return x.from !== x.to; });
+      html += moved.length ? '<p class="small" style="font-weight:700;margin:10px 0 6px">Applicants whose decision changes</p><div class="rb-moved">' + moved.map(function (x) { var r = find(x.id); return '<button data-app="' + esc(x.id) + '"><b>' + esc(x.id) + '</b> ' + esc(r ? r.app.name : '') + '<span>' + chip(x.from) + ' → ' + chip(x.to) + '</span></button>'; }).join('') + '</div>' : '<p class="muted small" style="margin-top:10px">Scores move, but no decision changes.</p>';
+      html += '<div class="rb-actions"><button class="btn primary" id="rbApply">' + ic('check') + 'Apply rubric</button><button class="btn" id="rbDiscard">Discard draft</button></div>';
+    } else html += '<p class="muted">Move a slider or change a threshold to see, before you commit, exactly which applicants would move.</p>';
+    html += '<div class="rb-actions"><button class="btn ghost sm" id="rbDefaults">' + ic('undo') + 'Restore default rubric</button></div>' +
+      '<p class="muted small">Applying re-runs every decision, is logged in Activity and can be undone. The Partner Portal’s live chance uses the same rubric.</p></div></div></div>';
+    $('rubricBody').innerHTML = html;
+  }
+  function num(label, key, val, min, max, step) { return '<label class="rb-f"><span>' + esc(label) + '</span><input type="number" data-rb="' + key + '" value="' + val + '" min="' + min + '" max="' + max + '" step="' + step + '"></label>'; }
+  function setDraft(key, val) {
+    var rb = H.clone(draftRubric());
+    val = +val; if (isNaN(val)) return;
+    if (key === 'rejectBelowPct') rb.rejectBelowRatio = Math.max(0, Math.min(100, val)) / 100;
+    else { var parts = key.split('.'); if (parts.length === 2) rb[parts[0]][parts[1]] = val; else rb[key] = val; }
+    state.rubricDraft = rb;
+  }
+  function applyRubric(rb) {
+    var before = E.getRubric();
+    var changes = rubricChanges(before, rb);
+    E.setRubric(rb);
+    var after = E.evaluate(state.data, { today: state.today });
+    var out = { data: state.data, result: after, rubricBefore: before, html: '<p><b>Rubric updated</b></p><ul>' + changes.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>' + C.renderDiff(C.diff(state.result, after), []) };
+    state.rubricDraft = null;
+    commit(out, 'Rubric updated: ' + changes.join('; '), 'rubric');
+    bot(out.html);
+    toast('Rubric applied - every decision re-ran');
+  }
+
   // ------------------------------------------------------------------ views
   function setView(v) {
     state.view = v;
     document.querySelectorAll('#tabs button').forEach(function (b) { b.classList.toggle('active', b.getAttribute('data-view') === v); });
-    ['overview', 'decisions', 'map', 'onboarding'].forEach(function (x) { $('view-' + x).classList.toggle('hidden', x !== v); });
+    ['overview', 'decisions', 'map', 'onboarding', 'rubric'].forEach(function (x) { $('view-' + x).classList.toggle('hidden', x !== v); });
     renderView(v);
     window.scrollTo({ top: 0 });
   }
@@ -213,6 +402,7 @@
     if (v === 'decisions') renderDecisions(flash);
     if (v === 'map') renderMap();
     if (v === 'onboarding') renderOnboarding();
+    if (v === 'rubric') renderRubric();
     hydrate();
   }
 
@@ -222,12 +412,21 @@
     return c;
   }
 
+  function portalAttention(r) {
+    if (r.app.source !== 'portal' || !S) return null;
+    var a = S.app(r.app.id); if (!a) return null;
+    var unread = a.messages.filter(function (m) { return m.unread; });
+    if (unread.length) return { label: 'Replied', sub: 'Portal reply: ' + (unread[unread.length - 1].text || '') };
+    if (!a.messages.some(function (m) { return m.from === 'team'; }) && !a.withdrawn) return { label: 'New · portal', sub: 'Applied through the Partner Portal: ' + r.headline };
+    return null;
+  }
+
   // ---------------- Overview
   function renderOverview() {
     var res = state.result, c = counts(), n = res.results.length;
     var rep = state.report || { sheetsUsed: {}, warnings: [] };
     $('fileMeta').innerHTML = esc(state.fileName) + ' · ' + n + ' applications · ' + res.territories.length + ' territories · ' + state.data.stores.length + ' existing stores' +
-      (state.log.length ? ' · ' + state.log.length + ' update(s)' : '') + (rep.warnings.length ? ' · <span style="color:var(--conditional-ink)">' + esc(rep.warnings.join(' ')) + '</span>' : '');
+      (state.log.length ? ' · ' + state.log.length + ' update(s)' : '') + (function () { var n = state.data.applications.filter(function (a) { return a.source === 'portal'; }).length; return n ? ' · <b>' + n + ' from the Partner Portal</b>' : ''; })() + (rep.warnings.length ? ' · <span style="color:var(--conditional-ink)">' + esc(rep.warnings.join(' ')) + '</span>' : '');
     var slots = 0, filled = 0;
     res.territories.forEach(function (t) { slots += t.slots; filled += t.filled; });
     var moving = (c.APPROVED || 0) + (c.CONDITIONAL || 0);
@@ -254,13 +453,15 @@
 
     // attention
     var rank = { review: 0, manual: 1, waiting: 2 };
-    var att = res.results.filter(function (r) { return rank[r.confidence] !== undefined; })
-      .sort(function (a, b) { return rank[a.confidence] - rank[b.confidence] || b.score - a.score; });
+    var att = res.results.filter(function (r) { return rank[r.confidence] !== undefined || portalAttention(r); })
+      .sort(function (a, b) { return rankOf(a) - rankOf(b) || b.score - a.score; });
+    function rankOf(r) { return portalAttention(r) ? -1 : rank[r.confidence]; }
     $('attnCount').textContent = att.length ? att.length + ' item(s)' : '';
     $('attention').innerHTML = att.length ? att.map(function (r) {
-      var lbl = r.confidence === 'review' ? 'Review' : r.confidence === 'manual' ? 'Override' : 'Ask applicant';
-      var sub = r.confidence === 'waiting' ? (r.actions[0] || r.reviewNote) : r.reviewNote;
-      return '<button class="att" data-app="' + esc(r.app.id) + '">' + avatar(r.app.name) + '<span><span class="t">' + esc(r.app.id) + ' · ' + esc(r.app.name || '—') + ' ' + chip(r.status) + '</span><br><span class="s">' + esc(sub) + '</span></span><span class="badge ' + r.confidence + '">' + lbl + '</span></button>';
+      var pa = portalAttention(r);
+      var lbl = pa ? pa.label : r.confidence === 'review' ? 'Review' : r.confidence === 'manual' ? 'Override' : 'Ask applicant';
+      var sub = pa ? pa.sub : r.confidence === 'waiting' ? (r.actions[0] || r.reviewNote) : r.reviewNote;
+      return '<button class="att" data-app="' + esc(r.app.id) + '"' + (pa ? ' data-tab="chat"' : '') + '>' + avatar(r.app.name) + '<span><span class="t">' + esc(r.app.id) + ' · ' + esc(r.app.name || '—') + ' ' + chip(r.status) + '</span><br><span class="s">' + esc(sub) + '</span></span><span class="badge ' + (pa ? 'portal' : r.confidence) + '">' + lbl + '</span></button>';
     }).join('') : '<p class="empty-note">Nothing needs you right now - every decision is high confidence.</p>';
 
     // territories
@@ -330,6 +531,7 @@
     if (r.confidence === 'review') flags += '<span class="flag review" title="' + esc(r.reviewNote) + '">' + ic('alert') + 'Review</span>';
     if (r.confidence === 'manual') flags += '<span class="flag manual" title="' + esc(r.reviewNote) + '">' + ic('flag') + 'Override</span>';
     if (r.app.added) flags += '<span class="flag new">New</span>';
+    if (r.app.source === 'portal') { var un = unreadCount(r.app.id); flags += '<span class="flag portal">' + ic('globe') + 'Portal' + (un ? ' · ' + un + ' new' : '') + '</span>'; }
     return '<button class="acard' + (flash && flash.indexOf(r.app.id) >= 0 ? ' flash' : '') + '" data-app="' + esc(r.app.id) + '">' +
       '<div class="acard-top">' + avatar(r.app.name) + '<div class="who"><b>' + esc(r.app.name || '(no name)') + '</b></div>' + ring(r.score, r.status) + '</div>' +
       '<div class="meta">' + esc(r.app.id) + ' · ' + esc(r.app.city || '?') + ' ' + esc(r.proposedPin || r.app.pin || '') + '</div>' +
@@ -476,6 +678,7 @@
     if (state.ppTab === 'plan' && !r.plan) state.ppTab = 'decision';
     var a = r.app;
     var tabs = [['decision', 'Decision'], ['path', r.status === 'APPROVED' || r.status === 'WITHDRAWN' ? 'What-if' : 'Path to yes'], ['plan', 'Onboarding plan'], ['message', 'Message']].filter(function (t) { return t[0] !== 'plan' || r.plan; });
+    if (r.app.source === 'portal') { var un = unreadCount(r.app.id); tabs.push(['chat', 'Conversation' + (un ? ' (' + un + ')' : '')]); }
     var html = '<div class="pp-head"><div class="pp-top">' + avatar(a.name) + '<div><h2>' + esc(a.name || '(no name)') + '</h2><div class="meta">' + esc(a.id) + ' · ' + esc(a.city || '?') + ' · pin ' + esc(a.pin || '?') + (r.territoryId ? ' · ' + esc(r.territoryId) : '') + ' · ' + esc(a.language) + '</div></div>' +
       '<button class="icon-btn" id="ppClose" aria-label="Close">' + icon('x') + '</button></div>' +
       '<div class="pp-tabs">' + tabs.map(function (t) { return '<button data-pptab="' + t[0] + '" class="' + (state.ppTab === t[0] ? 'active' : '') + '">' + t[1] + '</button>'; }).join('') + '</div></div>';
@@ -484,6 +687,7 @@
     if (state.ppTab === 'path') html += pathTab(r);
     if (state.ppTab === 'plan') html += planTab(r);
     if (state.ppTab === 'message') html += messageTab(r);
+    if (state.ppTab === 'chat') html += chatTab(r);
     html += '</div>';
     var pp = $('passport');
     var top = pp.scrollTop;
@@ -768,7 +972,7 @@
     var rows = state.result.results.map(function (r) {
       var p = r.plan;
       return {
-        'Application ID': r.app.id, 'Applicant': r.app.name, 'City': r.app.city, 'Pin code': r.app.pin, 'Territory': r.territoryId || '', 'Store pin (if relocated)': r.proposedPin || '',
+        'Application ID': r.app.id, 'Source': r.app.source === 'portal' ? 'Partner Portal' : 'Excel / manual', 'Applicant': r.app.name, 'City': r.app.city, 'Pin code': r.app.pin, 'Territory': r.territoryId || '', 'Store pin (if relocated)': r.proposedPin || '',
         'Decision': r.statusLabel, 'Fit score': r.score, 'Confidence': r.confidence + (r.reviewNote ? ' - ' + r.reviewNote : ''), 'Why (summary)': r.headline,
         'Reasons': r.blocking.map(function (b) { return '- ' + b.text; }).concat(r.reasons.map(function (x) { return (x.t === '+' ? '+ ' : x.t === '-' ? '- ' : '• ') + x.text; })).join('\n'),
         'Conditions': r.conditions.join('\n'), 'Next steps': p ? p.nextSteps.map(function (s) { return s.by + ': ' + s.text; }).join('\n') : r.actions.join('\n'),
@@ -805,6 +1009,26 @@
   $('btnAdd').addEventListener('click', addForm);
   $('btnExport').addEventListener('click', exportXlsx);
   $('btnSave').addEventListener('click', saveFile);
+  $('btnPortal').addEventListener('click', portalModal);
+  $('rubricBody').addEventListener('input', function (e) {
+    var el = e.target.closest('[data-rb]'); if (!el) return;
+    setDraft(el.getAttribute('data-rb'), el.value);
+    clearTimeout(state._rbT);
+    state._rbT = setTimeout(function () {
+      var focusKey = el.getAttribute('data-rb'), isRange = el.type === 'range';
+      renderRubric(); hydrate();
+      var again = $('rubricBody').querySelector('[data-rb="' + focusKey + '"]' + (isRange ? '[type="range"]' : '[type="number"]'));
+      if (again) again.focus({ preventScroll: true });
+    }, 220);
+  });
+  $('rubricBody').addEventListener('click', function (e) {
+    if (e.target.closest('#rbApply')) applyRubric(draftRubric());
+    else if (e.target.closest('#rbDiscard')) { state.rubricDraft = null; renderRubric(); hydrate(); }
+    else if (e.target.closest('#rbDefaults')) { state.rubricDraft = H.clone(E.DEFAULT_RUBRIC); renderRubric(); hydrate(); }
+  });
+  if (S) S.subscribe(syncPortal);
+  if (S && $('doorPortal')) $('doorPortal').href = S.portalUrl();
+  renderSync(); showPortalWaiting();
   $('restore').addEventListener('click', function (e) {
     if (e.target.closest('#restoreYes')) { var s = savedSession(); if (s) openSession(s); }
     if (e.target.closest('#restoreNo')) { forgetSaved(); $('restore').classList.add('hidden'); }
@@ -884,7 +1108,9 @@
     }
     if ((t = e.target.closest('.ter[data-city]'))) { state.mapCity = t.getAttribute('data-city'); setView('map'); return; }
     if ((t = e.target.closest('[data-goto]'))) { setView(t.getAttribute('data-goto')); return; }
-    if ((t = e.target.closest('[data-app]'))) { e.preventDefault(); openPassport(t.getAttribute('data-app'), 'decision'); return; }
+    if ((t = e.target.closest('[data-askq]'))) { S.ask(state.pp, t.getAttribute('data-askq'), ''); toast('Question sent to the applicant’s portal'); return; }
+    if ((t = e.target.closest('#cvSend'))) { var q = $('cvCustom').value.trim(); if (!q) { toast('Type a question first', true); return; } S.ask(state.pp, 'custom', q); toast('Question sent to the applicant’s portal'); return; }
+    if ((t = e.target.closest('[data-app]'))) { e.preventDefault(); openPassport(t.getAttribute('data-app'), t.getAttribute('data-tab') || 'decision'); return; }
   });
 
   // drag & drop anywhere

@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Veloce Partner Portal</title>
+<meta name="description" content="Apply to open a Veloce store: check your area, see your shortlist chances live, and track your application in English, Hindi or Kannada.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Sans+Kannada:wght@400;600;700&family=Noto+Sans+Devanagari:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css?v=20261026a">
+<link rel="stylesheet" href="portal.css?v=20261026a">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%230e1a33'/%3E%3Cpath d='M9 9l7 15 7-15' stroke='%23ffd166' stroke-width='3.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+</head>
+<body class="portal">
+<header class="pt-top">
+  <a class="pt-brand" href="#/" aria-label="Veloce home">
+    <span class="pt-logo"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M9 9l7 15 7-15" stroke="#ffd166" stroke-width="3.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+    <span><b>veloce</b><small data-t="portal">Partner Portal</small></span>
+  </a>
+  <div class="pt-actions">
+    <span class="sync-badge" id="sync"></span>
+    <a class="btn ghost sm" href="#/track" data-t="track">Track application</a>
+    <div class="langs" id="langs" role="group" aria-label="Language">
+      <button data-lang="en">English</button><button data-lang="hi" class="hi">हिन्दी</button><button data-lang="kn" class="kn">ಕನ್ನಡ</button>
+    </div>
+  </div>
+</header>
+
+<main id="pt" class="pt-main"></main>
+
+<footer class="pt-foot">
+  <span id="footWs"></span>
+  <a id="toDash" href="index.html" data-t="team">Veloce team? Open the expansion dashboard →</a>
+</footer>
+
+<script src="config.js?v=20261026a"></script>
+<script src="engine.js?v=20261026a"></script>
+<script src="loader.js?v=20261026a"></script>
+<script src="messages.js?v=20261026a"></script>
+<script src="questions.js?v=20261026a"></script>
+<script src="sample-data.js?v=20261026a"></script>
+<script src="store.js?v=20261026a"></script>
+<script src="portal.js?v=20261026a"></script>
+</body>
+</html>

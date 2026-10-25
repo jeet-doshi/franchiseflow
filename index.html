@@ -26,9 +26,10 @@
   <div class="top-actions">
     <button class="btn ghost" id="btnGuide"><i data-ic="info"></i><span>How to test</span></button>
     <button class="btn ghost hidden" id="btnAdd"><i data-ic="plus"></i><span>Applicant</span></button>
+    <button class="btn ghost hidden" id="btnSave" title="Download this session (data, updates, overrides) to reopen later or hand to a colleague"><i data-ic="copy"></i><span>Save session</span></button>
     <button class="btn ghost hidden" id="btnExport"><i data-ic="download"></i><span>Export</span></button>
     <label class="btn primary" for="fileInput"><i data-ic="upload"></i><span>Upload Excel</span></label>
-    <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" hidden>
+    <input type="file" id="fileInput" accept=".xlsx,.xls,.csv,.json" hidden>
   </div>
 </header>
 
@@ -36,6 +37,7 @@
   <main id="main">
     <!-- ============ Landing ============ -->
     <section id="landing" class="landing">
+      <div class="restore hidden" id="restore"></div>
       <div class="hero">
         <div class="hero-copy">
           <span class="eyebrow"><i data-ic="sparkle"></i> AI x Ops Hackathon · Case 1</span>

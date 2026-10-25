@@ -28,6 +28,21 @@ No login, no API keys, no rate limits. It runs entirely in the browser and is de
 
 All assumptions live in `ASSUMPTIONS` at the top of `engine.js`.
 
+## Saving work
+- **Autosave**: every change is saved in this browser; reopening the link offers *Pick up where you left off*.
+- **Save session**: downloads a `.json` (data, updates, overrides, change log) you can reopen with *Upload* or hand to a colleague.
+- Nothing leaves the device, so each tester gets a clean, private session with no login or quota.
+
+## From MVP to company rollout
+| Layer | MVP (this repo) | Company version |
+|---|---|---|
+| Applications in | Excel upload, Add Applicant form, chat | Web/WhatsApp application form writes to the database |
+| Storage | Browser autosave + session file | Postgres (e.g. Supabase): applicants, territories, stores, decisions, overrides, change log |
+| Users | Anyone with the link | Logins by role: expansion manager, area manager, training team, head of expansion |
+| Decisions | `engine.js` in the browser | The same `engine.js` server-side (pure functions, no changes), re-run on every change; decisions versioned |
+| Audit | Change log in the session | The change log and overrides become an audit table |
+| Messages | Draft + copy | Sent via WhatsApp Business API, with delivery status |
+
 ## Files
 `index.html` · `styles.css` · `app.js` (UI) · `engine.js` (decisions, path to yes, portfolio) · `loader.js` (Excel reader) · `chat.js` (assistant) · `messages.js` (partner messages) · `sample/` (test file + blank template) · `tools/` (`make_sample.py`, `test.js`)
 

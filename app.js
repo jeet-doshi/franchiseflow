@@ -92,21 +92,73 @@
       if (i < lis.length) { lis[i].classList.add('on'); i++; return; }
       clearInterval(timer);
       $('processing').classList.add('hidden');
-      state.data = data; state.report = parsed.report; state.fileName = name;
-      state.history = []; state.log = []; state.today = new Date(); state.dueDone = {}; state.msgLang = {};
-      state.result = E.evaluate(state.data, { today: state.today });
-      state.mapCity = null;
-      $('landing').classList.add('hidden');
-      ['tabs', 'btnAdd', 'btnExport'].forEach(function (id) { $(id).classList.remove('hidden'); });
-      setView('overview');
-      greet();
-      setChat(window.innerWidth > 960);
-      if (window.innerWidth <= 960) $('chatFab').classList.remove('hidden');
+      openSession({ data: data, report: parsed.report, fileName: name, log: [] });
     }, 170);
+  }
+
+  // One way in for a fresh upload, a restored autosave and a loaded session file
+  function openSession(s) {
+    state.data = s.data; state.report = s.report || { sheetsUsed: {}, warnings: [] }; state.fileName = s.fileName || 'Session';
+    state.history = []; state.today = new Date(); state.dueDone = s.dueDone || {}; state.msgLang = {};
+    state.log = (s.log || []).map(function (l) { return { when: new Date(l.when), text: l.text, kind: l.kind, html: l.html }; });
+    state.result = E.evaluate(state.data, { today: state.today });
+    state.mapCity = null;
+    $('landing').classList.add('hidden');
+    ['tabs', 'btnAdd', 'btnExport', 'btnSave'].forEach(function (id) { $(id).classList.remove('hidden'); });
+    setView('overview');
+    greet();
+    if (state.log.length) bot('<p>Restored your session with <b>' + state.log.length + ' update(s)</b> - decisions re-run as of today.</p>');
+    setChat(window.innerWidth > 960);
+    if (window.innerWidth <= 960) $('chatFab').classList.remove('hidden');
+    persist();
+  }
+
+  // ------------------------------------------------------------------ persistence (this browser only)
+  // Autosave keeps a judge's or manager's work through a refresh. It never leaves the device;
+  // a shared team database is the production step (see README).
+  var SAVE_KEY = 'franchiseflow.session.v1';
+  function snapshot() {
+    return { app: 'FranchiseFlow', v: 1, savedAt: new Date().toISOString(), fileName: state.fileName, report: state.report, data: state.data, dueDone: state.dueDone,
+      log: state.log.map(function (l) { return { when: l.when.toISOString(), text: l.text, kind: l.kind, html: l.html }; }) };
+  }
+  function persist() {
+    if (!state.data) return;
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify(snapshot())); } catch (e) { /* private mode or storage full: autosave is a convenience only */ }
+  }
+  function savedSession() {
+    try { var s = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); return s && s.data && s.data.applications ? s : null; } catch (e) { return null; }
+  }
+  function forgetSaved() { try { localStorage.removeItem(SAVE_KEY); } catch (e) { /* ignore */ } }
+  function showRestore() {
+    var s = savedSession();
+    var el = $('restore');
+    if (!s) { el.classList.add('hidden'); return; }
+    var when = new Date(s.savedAt);
+    el.innerHTML = '<span class="restore-ic">' + icon('undo') + '</span><div><b>Pick up where you left off?</b><span>' + esc(s.fileName) + ' · ' + s.data.applications.length + ' applicants · ' + (s.log || []).length + ' update(s) · saved ' + when.toLocaleDateString([], { day: 'numeric', month: 'short' }) + ' ' + when.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + '</span></div>' +
+      '<button class="btn primary sm" id="restoreYes">Continue</button><button class="btn ghost sm" id="restoreNo">Start fresh</button>';
+    el.classList.remove('hidden');
+  }
+  function saveFile() {
+    var blob = new Blob([JSON.stringify(snapshot(), null, 1)], { type: 'application/json' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'FranchiseFlow_Session_' + new Date().toISOString().slice(0, 10) + '.json';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+    toast('Session saved - load it any time with Upload');
   }
 
   function handleFile(file) {
     if (!file) return;
+    if (/\.json$/i.test(file.name)) {
+      file.text().then(function (txt) {
+        var s = JSON.parse(txt);
+        if (!s || s.app !== 'FranchiseFlow' || !s.data || !s.data.applications) throw new Error('That JSON is not a FranchiseFlow session file.');
+        openSession(s);
+        toast('Session loaded: ' + s.data.applications.length + ' applicants, ' + (s.log || []).length + ' update(s)');
+      }).catch(function (e) { toast(e.message || 'Could not read that session file.', true); });
+      return;
+    }
     if (!window.XLSX) { toast('The spreadsheet reader did not load - check the connection and refresh.', true); return; }
     file.arrayBuffer().then(function (buf) {
       var wb = XLSX.read(buf, { type: 'array' });
@@ -130,6 +182,7 @@
     renderAll(changed);
     if (state.pp) openPassport(state.pp, state.ppTab, true);
     setChips();
+    persist();
     return changed;
   }
   function undo() {
@@ -137,6 +190,7 @@
     var prev = state.history.pop();
     state.data = prev.data; state.result = prev.result;
     state.log.pop();
+    persist();
     renderAll();
     if (state.pp) openPassport(state.pp, state.ppTab, true);
     setChips();
@@ -749,6 +803,11 @@
   $('btnGuide').addEventListener('click', guide);
   $('btnAdd').addEventListener('click', addForm);
   $('btnExport').addEventListener('click', exportXlsx);
+  $('btnSave').addEventListener('click', saveFile);
+  $('restore').addEventListener('click', function (e) {
+    if (e.target.closest('#restoreYes')) { var s = savedSession(); if (s) openSession(s); }
+    if (e.target.closest('#restoreNo')) { forgetSaved(); $('restore').classList.add('hidden'); }
+  });
   $('brandHome').addEventListener('click', function (e) { e.preventDefault(); if (state.result) setView('overview'); });
   $('tabs').addEventListener('click', function (e) { var b = e.target.closest('button[data-view]'); if (b) setView(b.getAttribute('data-view')); });
   $('search').addEventListener('input', function (e) { state.search = e.target.value; renderDecisions(); hydrate(); });
@@ -759,7 +818,7 @@
   $('chatFab').addEventListener('click', function () { setChat(true); });
   $('scrim').addEventListener('click', closePassport);
   $('modal').addEventListener('click', function (e) { if (e.target === $('modal') || e.target.closest('[data-close-modal]')) closeModal(); });
-  $('due').addEventListener('change', function (e) { var k = e.target.getAttribute('data-due'); if (k) state.dueDone[k] = e.target.checked; });
+  $('due').addEventListener('change', function (e) { var k = e.target.getAttribute('data-due'); if (k) { state.dueDone[k] = e.target.checked; persist(); } });
   $('mapSvg').addEventListener('click', function (e) { var g = e.target.closest('[data-city]'); if (g) { state.mapCity = g.getAttribute('data-city'); renderMap(); hydrate(); } });
   $('mapSvg').addEventListener('keydown', function (e) { if (e.key === 'Enter') { var g = e.target.closest('[data-city]'); if (g) { state.mapCity = g.getAttribute('data-city'); renderMap(); } } });
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { if (!$('modal').classList.contains('hidden')) closeModal(); else closePassport(); } });
@@ -836,4 +895,5 @@
   bot('<p>Hi! I’m the FranchiseFlow assistant. Load the sample data or upload your Excel, then ask me <i>why</i> about any decision, or tell me what changed. I’ll re-run everything instantly.</p>');
   $('chips').innerHTML = '<button type="button" data-sample>Load sample data</button><button type="button" data-ask="Help">What can you do?</button>';
   state.view = 'landing';
+  showRestore();
 })();

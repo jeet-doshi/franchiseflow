@@ -2,42 +2,37 @@
 
 **Case 1 – Franchise Partner Acquisition, Geo-Selection & Onboarding Engine** (AI x Ops Hackathon)
 
-Upload the Applications + Territories Excel. For every applicant, FranchiseFlow decides what should happen and why, allocates territory slots (never two stores in one pin code), and builds an onboarding and training plan for everyone moving forward. Then ask follow-ups in plain English or give it new information, and it re-runs every decision and shows what changed.
+Upload the Applications + Territories Excel. For every applicant FranchiseFlow decides what should happen and why, allocates territory slots (never two stores in one pin code), and builds an onboarding plan, training plan and a message in the partner's language for everyone moving forward. Then talk to it: ask why, or give it new information, and it re-runs every decision and shows what changed.
 
-- No login, no API keys, no rate limits. Everything runs in the browser, and the uploaded file never leaves the judge's machine.
-- Deterministic: the same file always gives the same answer, and every decision lists its reasons.
+No login, no API keys, no rate limits. It runs entirely in the browser and is deterministic: the same file always gives the same answer.
 
-## How judges use it
-1. Open the link → **Upload Excel** (or **Try with sample data**).
-2. Click any row for the full reasoning, score breakdown, next steps, week-by-week onboarding plan, training plan and payback estimate.
-3. Use the chat on the right:
-   - Questions: `Why is APP-007 on hold?` · `Next steps for APP-003` · `Compare APP-013 and APP-014` · `Show on hold` · `TER-03` · `How do you score?`
-   - New information: `APP-012 has now found a ground-floor space` · `APP-005 can now invest 30 lakh` · `APP-002 has withdrawn` · `TER-02 now has 2 open slots` · `A new store opened in 570008`
-   - `What if …` previews without saving; `undo` reverts.
-4. **Export decisions (.xlsx)** downloads the decisions, territory allocation and change log.
+## What's inside
+| View | What it shows |
+|---|---|
+| **Overview** | Funnel by outcome, slots filled, first openings, and *Needs your attention* (close calls, contradictory forms, questions to ask) |
+| **Decisions** | Board by outcome (Approved · Conditional · Waitlisted · On hold · Not proceeding) or table; search and city filter |
+| **Map** | Karnataka with each target city; click a city to see every pin as a tile: our store, approved, wanted, free |
+| **Onboarding** | Opening calendar (phase Gantt), training cohorts by language and month, actions due this week |
+| **Partner passport** | Decision and reasons, score breakdown, **Path to yes**, live what-if, onboarding journey, training plan, payback, **message in Kannada/Hindi/English**, manager override |
+| **Assistant** | Why · next steps · compare · path to yes · draft message · cohorts · new facts · new applicants · overrides · what-if · undo |
 
-## Decision logic (summary)
+## Decision logic
 | Step | What happens |
 |---|---|
-| Data checks | City vs pin prefix, missing pin/investment, space status vs size/notes contradictions, duplicates, text in number columns ("35 lakhs", "seven", "600 sqft") |
-| Hard rules | Never two stores per pin (existing stores + applicants). Pin outside target territories → offer free pins. Investment < 70% of setup cost → reject |
-| Fit score /100 | Funds 25 · Space readiness 25 · Retail experience 20 · Business background 10 · Timeline realism 10 · Territory priority 10 · ± adjustments (cannibalisation, contradictions, signals in notes) |
-| Allocation | Per territory, best score first, one pin each. A pin loser re-enters with a *relocation score* (space points reset, since moving means losing their shop) |
-| Outcomes | Approved · Conditional (slot held 30 days) · Waitlisted · On hold · Rejected · Withdrawn |
-| Onboarding | Agreement/KYC → site audit → fit-out (by tier) + hiring → training in the partner's language (fast/full track, shadowing at the nearest store) → soft launch → 30/60/90-day reviews; festival deadlines checked |
+| Data checks | City vs pin prefix, missing pin/investment, space vs size/notes contradictions, duplicates, text in number columns |
+| Hard rules | One store per pin (existing stores and applicants). Investment < 70% of setup cost → reject. Fit < 40 → reject |
+| Fit score /100 | Funds 25 · Space 25 · Experience 20 · Business 10 · Timeline 10 · Territory priority 10 · ± adjustments (cannibalisation, contradictions, signals in notes) |
+| Allocation | Per territory, best score first, one pin each. Applicants whose pin is unusable compete at a *relocation score* and get a free pin nobody else asked for |
+| Confidence | Close calls, contradictory forms and borderline rejects → *Review*; overrides → *Manual* |
+| Onboarding | Agreement/KYC → site audit → fit-out (by tier) + hiring → training in the partner's language (fast/full track, shadowing at the nearest store) → soft launch → 30/60/90-day reviews |
 
-All assumptions are in `ASSUMPTIONS` at the top of `engine.js` and in the app's **How decisions are made** panel.
+All assumptions live in `ASSUMPTIONS` at the top of `engine.js`.
 
 ## Files
-- `index.html`, `styles.css`, `app.js`: UI
-- `engine.js`: decision engine (pure functions)
-- `loader.js`: Excel reader (matches sheets and columns by content, tolerates template variations)
-- `chat.js`: rule-based conversational layer (questions, updates, what-if, undo)
-- `sample/`: sample test file in the judges' format and a blank template
-- `tools/make_sample.py`: regenerates the sample files · `tools/test.js`: `node tools/test.js` smoke test
+`index.html` · `styles.css` · `app.js` (UI) · `engine.js` (decisions, path to yes, portfolio) · `loader.js` (Excel reader) · `chat.js` (assistant) · `messages.js` (partner messages) · `sample/` (test file + blank template) · `tools/` (`make_sample.py`, `test.js`)
 
 ## Run locally
 ```bash
 python -m http.server 8765
 ```
-Then open http://localhost:8765. Any static host works (GitHub Pages, Netlify, Vercel).
+Then open http://localhost:8765. Any static host works (GitHub Pages, Netlify, Vercel). Smoke test: `node tools/test.js`.

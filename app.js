@@ -270,6 +270,7 @@
     commit(out, labels.join(' · '), 'portal');
     bot(out.html);
     toast(labels[0]);
+    if (state.pendingOpen && find(state.pendingOpen.id)) { openPassport(state.pendingOpen.id, state.pendingOpen.tab); state.pendingOpen = null; }
   }
   function showPortalWaiting() {
     var el = $('portalWaiting');
@@ -1137,7 +1138,10 @@
     if (qs.get('view')) setView(qs.get('view'));
     if (qs.get('chat') === '0') setChat(false);
     if (qs.get('ask')) ask(qs.get('ask'));
-    if (qs.get('app')) openPassport(qs.get('app'), qs.get('tab') || 'decision');
+    if (qs.get('app')) {
+      if (find(qs.get('app'))) openPassport(qs.get('app'), qs.get('tab') || 'decision');
+      else state.pendingOpen = { id: qs.get('app'), tab: qs.get('tab') || 'decision' }; // a portal applicant still loading from the Sheet
+    }
     if (qs.get('lang') && qs.get('app')) { state.msgLang[qs.get('app')] = qs.get('lang'); openPassport(qs.get('app'), 'message'); }
     if (qs.has('guide')) guide();
   }

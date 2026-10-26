@@ -628,3 +628,21 @@ table.apps tbody tr:hover { background: var(--surface-2); }
 @media (max-width: 1100px) { .rb-grid { grid-template-columns: 1fr; } .rb-impact { position: static; } }
 @media (max-width: 720px) { .rb-row { grid-template-columns: 1fr 64px 40px; } .rb-row label { grid-column: 1 / -1; } .rb-fields { grid-template-columns: 1fr; } .portal-share { grid-template-columns: 1fr; } }
 @media (max-width: 1280px) { .top-actions .sync-badge { display: none; } }
+
+/* Top bar: keep every action on screen on smaller laptops (labels collapse to icons, tooltips stay) */
+.topbar { min-width: 0; }
+.top-actions { flex-wrap: nowrap; min-width: 0; }
+@media (max-width: 1760px) { .top-actions .secondary-act span { display: none; } .top-actions .secondary-act { padding: 0 10px; } }
+@media (max-width: 1180px) { .top-actions .btn.ghost span { display: none; } .top-actions .btn.ghost { padding: 0 10px; } .brand-text small { display: none; } }
+
+/* Live status folds into the Partner portal button when space is tight */
+#btnPortal { position: relative; }
+#btnPortal.is-live::after { content: ''; position: absolute; top: 7px; right: 7px; width: 8px; height: 8px; border-radius: 50%; background: var(--approved); box-shadow: 0 0 0 2px var(--surface); display: none; }
+@media (max-width: 1440px) { .top-actions .sync-badge { display: none; } #btnPortal.is-live::after { display: block; } }
+/* Tablets: view tabs move to their own row, like on phones */
+@media (max-width: 960px) {
+  .topbar { flex-wrap: wrap; height: auto; min-height: var(--top-h); padding-top: 8px; padding-bottom: 8px; gap: 8px; }
+  .tabs { order: 3; width: 100%; justify-content: space-between; margin: 0; }
+  .tabs button { flex: 1; justify-content: center; }
+  .top-actions { margin-left: auto; }
+}

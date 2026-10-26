@@ -244,6 +244,8 @@
     el.className = 'sync-badge ' + st.mode;
     el.textContent = { live: 'Live', local: 'This device', offline: 'Offline · will sync', connecting: 'Connecting…' }[st.mode];
     el.title = (st.live ? 'Google Sheets database' : 'Saved in this browser') + ' · workspace ' + st.ws;
+    var pb = $('btnPortal');
+    if (pb) { pb.classList.toggle('is-live', st.mode === 'live'); pb.title = 'Partner Portal: link and QR code for applicants · ' + el.textContent + ' · workspace ' + st.ws; }
   }
   /** Portal changed (new application, a reply, a withdrawal): re-run every decision and log it */
   function syncPortal(why) {
@@ -292,7 +294,7 @@
       '<p class="small"><a href="index.html?ws=public">Switch to the public workspace</a> · <a href="#" id="newWs">Start a new private workspace</a></p></div></div>');
     if (window.QRCode) { try { new QRCode($('qr'), { text: url, width: 168, height: 168, colorDark: '#0e1a33', colorLight: '#ffffff' }); } catch (e) { $('qr').classList.add('hidden'); } }
     else $('qr').classList.add('hidden');
-    $('copyPortal').addEventListener('click', function () { $('portalUrl').select(); if (navigator.clipboard) navigator.clipboard.writeText(url); toast('Portal link copied'); });
+    $('copyPortal').addEventListener('click', function () { $('portalUrl').select(); var done = function () { toast('Portal link copied'); }; if (navigator.clipboard) navigator.clipboard.writeText(url).then(done, function () { try { document.execCommand('copy'); } catch (x) { /* text stays selected */ } done(); }); else { try { document.execCommand('copy'); } catch (x) { /* text stays selected */ } done(); } });
     $('newWs').addEventListener('click', function (e) { e.preventDefault(); try { localStorage.removeItem('veloce.ws'); localStorage.removeItem(SAVE_KEY); } catch (x) { /* ignore */ } location.href = 'index.html'; });
   }
 

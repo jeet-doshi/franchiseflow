@@ -39,7 +39,7 @@
       howScore: 'How you score', f_Funds: 'Funds', 'f_Space readiness': 'Shop readiness', 'f_Retail experience': 'Retail experience', 'f_Business background': 'Business background', 'f_Timeline realism': 'Realistic timeline', 'f_Territory priority': 'Area priority',
       improve: 'How to improve your chances', tip_funds: 'Raise your investment to ₹{amt} lakh', tip_space: 'Secure a ground-floor shop of about 450 sq ft', tip_size: 'Confirm a shop of at least 400 sq ft',
       tip_pin: 'Choose pin {pin} instead', tip_launch: 'Plan to open in {n} months', tip_loan: 'Get your bank loan sanctioned', tip_commit: 'Confirm you are fully committed', tip_conflict: 'Exit any competing brand',
-      tip_fulltime: 'Plan to run the store full-time', tip_city: 'Confirm your city', tip_all: 'Do all of the above together', noTips: 'Nothing to improve. Keep your documents ready.',
+      tip_fulltime: 'Plan to run the store full-time', tip_city: 'Confirm your city', tip_all: 'Do all of the above together', noTips: 'Nothing to improve. Keep your documents ready.', noTipsSoft: 'What’s left is experience and business background. Those build over time, and our training covers them, so keep your documents ready.',
       fineprint: 'This is a live estimate. The final decision also depends on other applicants for the same area and on checking your documents.',
       doneTitle: 'Application submitted!', doneId: 'Your application ID', doneSave: 'Save this ID. Use it to track your application and answer questions from our team.', doneTrack: 'Track my application', doneCopy: 'Copy ID', copied: 'Copied',
       trkTitle: 'Your application', notFound: 'We couldn’t find {id}. Check the ID and try again.', loading: 'Looking up your application…',
@@ -82,7 +82,7 @@
       howScore: 'आपका स्कोर कैसे बना', f_Funds: 'पूंजी', 'f_Space readiness': 'दुकान की तैयारी', 'f_Retail experience': 'रिटेल अनुभव', 'f_Business background': 'व्यावसायिक पृष्ठभूमि', 'f_Timeline realism': 'व्यावहारिक समय-सीमा', 'f_Territory priority': 'इलाके की प्राथमिकता',
       improve: 'अपनी संभावना कैसे बढ़ाएँ', tip_funds: 'निवेश ₹{amt} लाख तक बढ़ाएँ', tip_space: 'लगभग 450 वर्ग फुट की ग्राउंड फ्लोर दुकान लें', tip_size: 'कम से कम 400 वर्ग फुट की दुकान पक्की करें',
       tip_pin: 'इसकी जगह पिन {pin} चुनें', tip_launch: '{n} महीनों में खोलने की योजना बनाएँ', tip_loan: 'बैंक लोन स्वीकृत करवाएँ', tip_commit: 'अपनी पूरी प्रतिबद्धता की पुष्टि करें', tip_conflict: 'किसी प्रतिस्पर्धी ब्रांड से अलग हों',
-      tip_fulltime: 'स्टोर पूरा समय खुद चलाने की योजना बनाएँ', tip_city: 'अपना शहर पक्का करें', tip_all: 'ऊपर की सभी बातें एक साथ करें', noTips: 'सुधार की ज़रूरत नहीं। अपने दस्तावेज़ तैयार रखें।',
+      tip_fulltime: 'स्टोर पूरा समय खुद चलाने की योजना बनाएँ', tip_city: 'अपना शहर पक्का करें', tip_all: 'ऊपर की सभी बातें एक साथ करें', noTips: 'सुधार की ज़रूरत नहीं। अपने दस्तावेज़ तैयार रखें।', noTipsSoft: 'बाकी अनुभव और व्यावसायिक पृष्ठभूमि है। ये समय के साथ बनते हैं और हमारा प्रशिक्षण इन्हें कवर करता है, अपने दस्तावेज़ तैयार रखें।',
       fineprint: 'यह एक लाइव अनुमान है। अंतिम निर्णय उसी इलाके के अन्य आवेदकों और आपके दस्तावेज़ों की जाँच पर भी निर्भर करता है।',
       doneTitle: 'आवेदन जमा हो गया!', doneId: 'आपकी आवेदन ID', doneSave: 'यह ID सँभालकर रखें। इससे आप आवेदन ट्रैक कर सकते हैं और हमारी टीम के सवालों के जवाब दे सकते हैं।', doneTrack: 'मेरा आवेदन ट्रैक करें', doneCopy: 'ID कॉपी करें', copied: 'कॉपी हो गया',
       trkTitle: 'आपका आवेदन', notFound: '{id} नहीं मिला। ID जाँचकर फिर कोशिश करें।', loading: 'आपका आवेदन खोजा जा रहा है…',
@@ -125,7 +125,7 @@
       howScore: 'ನಿಮ್ಮ ಅಂಕ ಹೇಗೆ ಬಂತು', f_Funds: 'ಬಂಡವಾಳ', 'f_Space readiness': 'ಮಳಿಗೆ ಸಿದ್ಧತೆ', 'f_Retail experience': 'ಚಿಲ್ಲರೆ ಅನುಭವ', 'f_Business background': 'ವ್ಯವಹಾರ ಹಿನ್ನೆಲೆ', 'f_Timeline realism': 'ವಾಸ್ತವಿಕ ಸಮಯ', 'f_Territory priority': 'ಪ್ರದೇಶದ ಆದ್ಯತೆ',
       improve: 'ನಿಮ್ಮ ಅವಕಾಶ ಹೆಚ್ಚಿಸುವುದು ಹೇಗೆ', tip_funds: 'ಹೂಡಿಕೆಯನ್ನು ₹{amt} ಲಕ್ಷಕ್ಕೆ ಹೆಚ್ಚಿಸಿ', tip_space: 'ಸುಮಾರು 450 ಚದರ ಅಡಿಯ ನೆಲ ಮಹಡಿ ಮಳಿಗೆ ಪಡೆಯಿರಿ', tip_size: 'ಕನಿಷ್ಠ 400 ಚದರ ಅಡಿಯ ಮಳಿಗೆ ಖಚಿತಪಡಿಸಿ',
       tip_pin: 'ಬದಲಿಗೆ ಪಿನ್ {pin} ಆಯ್ಕೆಮಾಡಿ', tip_launch: '{n} ತಿಂಗಳಲ್ಲಿ ತೆರೆಯಲು ಯೋಜಿಸಿ', tip_loan: 'ಬ್ಯಾಂಕ್ ಸಾಲ ಮಂಜೂರು ಮಾಡಿಸಿ', tip_commit: 'ನಿಮ್ಮ ಸಂಪೂರ್ಣ ಬದ್ಧತೆಯನ್ನು ಖಚಿತಪಡಿಸಿ', tip_conflict: 'ಸ್ಪರ್ಧಿ ಬ್ರ್ಯಾಂಡ್‌ನಿಂದ ಹೊರಬನ್ನಿ',
-      tip_fulltime: 'ಮಳಿಗೆಯನ್ನು ಪೂರ್ಣ ಸಮಯ ನೀವೇ ನಡೆಸಲು ಯೋಜಿಸಿ', tip_city: 'ನಿಮ್ಮ ನಗರ ಖಚಿತಪಡಿಸಿ', tip_all: 'ಮೇಲಿನ ಎಲ್ಲವನ್ನೂ ಒಟ್ಟಿಗೆ ಮಾಡಿ', noTips: 'ಸುಧಾರಣೆ ಬೇಕಿಲ್ಲ. ದಾಖಲೆಗಳನ್ನು ಸಿದ್ಧವಾಗಿಡಿ.',
+      tip_fulltime: 'ಮಳಿಗೆಯನ್ನು ಪೂರ್ಣ ಸಮಯ ನೀವೇ ನಡೆಸಲು ಯೋಜಿಸಿ', tip_city: 'ನಿಮ್ಮ ನಗರ ಖಚಿತಪಡಿಸಿ', tip_all: 'ಮೇಲಿನ ಎಲ್ಲವನ್ನೂ ಒಟ್ಟಿಗೆ ಮಾಡಿ', noTips: 'ಸುಧಾರಣೆ ಬೇಕಿಲ್ಲ. ದಾಖಲೆಗಳನ್ನು ಸಿದ್ಧವಾಗಿಡಿ.', noTipsSoft: 'ಉಳಿದಿರುವುದು ಅನುಭವ ಮತ್ತು ವ್ಯವಹಾರ ಹಿನ್ನೆಲೆ. ಇವು ಸಮಯದೊಂದಿಗೆ ಬೆಳೆಯುತ್ತವೆ, ನಮ್ಮ ತರಬೇತಿ ಇವನ್ನು ಒಳಗೊಳ್ಳುತ್ತದೆ; ದಾಖಲೆಗಳನ್ನು ಸಿದ್ಧವಾಗಿಡಿ.',
       fineprint: 'ಇದು ನೇರ ಅಂದಾಜು. ಅಂತಿಮ ನಿರ್ಧಾರ ಅದೇ ಪ್ರದೇಶದ ಇತರ ಅರ್ಜಿದಾರರು ಮತ್ತು ನಿಮ್ಮ ದಾಖಲೆಗಳ ಪರಿಶೀಲನೆಯನ್ನೂ ಅವಲಂಬಿಸಿದೆ.',
       doneTitle: 'ಅರ್ಜಿ ಸಲ್ಲಿಕೆಯಾಗಿದೆ!', doneId: 'ನಿಮ್ಮ ಅರ್ಜಿ ID', doneSave: 'ಈ ID ಉಳಿಸಿಕೊಳ್ಳಿ. ಅರ್ಜಿ ಸ್ಥಿತಿ ನೋಡಲು ಮತ್ತು ನಮ್ಮ ತಂಡದ ಪ್ರಶ್ನೆಗಳಿಗೆ ಉತ್ತರಿಸಲು ಇದನ್ನು ಬಳಸಿ.', doneTrack: 'ನನ್ನ ಅರ್ಜಿ ನೋಡಿ', doneCopy: 'ID ನಕಲಿಸಿ', copied: 'ನಕಲಾಯಿತು',
       trkTitle: 'ನಿಮ್ಮ ಅರ್ಜಿ', notFound: '{id} ಸಿಗಲಿಲ್ಲ. ID ಪರಿಶೀಲಿಸಿ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.', loading: 'ನಿಮ್ಮ ಅರ್ಜಿ ಹುಡುಕಲಾಗುತ್ತಿದೆ…',
@@ -371,7 +371,7 @@
       return '<div><span>' + esc(t('f_' + x.k)) + '</span><i><em style="width:' + Math.max(0, x.pts / x.max * 100) + '%"></em></i></div>';
     }).join('') + '</div>';
     if (withTips) {
-      html += '<h4>' + esc(t('improve')) + '</h4>' + (res.tips.length ? '<ul class="pt-tips">' + res.tips.map(function (x) { return '<li><span>' + esc(x.text) + '</span><b class="band-' + x.band + '">→ ' + esc(t('band_' + x.band)) + '</b></li>'; }).join('') + '</ul>' : '<p class="muted small">' + esc(t('noTips')) + '</p>');
+      html += '<h4>' + esc(t('improve')) + '</h4>' + (res.tips.length ? '<ul class="pt-tips">' + res.tips.map(function (x) { return '<li><span>' + esc(x.text) + '</span><b class="band-' + x.band + '">→ ' + esc(t('band_' + x.band)) + '</b></li>'; }).join('') + '</ul>' : '<p class="muted small">' + esc(t(b === 'strong' ? 'noTips' : 'noTipsSoft')) + '</p>');
     }
     return html + '<p class="pt-fine">' + esc(t('fineprint')) + '</p>';
   }
@@ -394,7 +394,7 @@
   function renderDone(id) {
     $('pt').innerHTML = '<section class="pt-done pt-card ' + langCls() + '"><div class="pt-check">✓</div><h1>' + esc(t('doneTitle')) + '</h1><p class="muted">' + esc(t('doneId')) + '</p>' +
       '<div class="pt-id">' + esc(id) + '</div><p>' + esc(t('doneSave')) + '</p><div class="pt-nav center"><button class="btn" id="copyId">' + esc(t('doneCopy')) + '</button><a class="btn primary" href="#/track/' + esc(id) + '">' + esc(t('doneTrack')) + ' →</a></div></section>';
-    $('copyId').addEventListener('click', function () { if (navigator.clipboard) navigator.clipboard.writeText(id); this.textContent = t('copied'); });
+    $('copyId').addEventListener('click', function () { var b = this; if (navigator.clipboard) navigator.clipboard.writeText(id).catch(function () { /* clipboard blocked: the ID stays on screen */ }); b.textContent = t('copied'); });
   }
 
   // ---------------- track
